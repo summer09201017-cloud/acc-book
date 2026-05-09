@@ -181,15 +181,18 @@ key/value 雜項；目前用 `migrationFromV1Done` 與 `builtinRefreshV2Done`。
 **檢視與分析**
 - 🟢 今日花費 / 本月剩 N 天均 Y 提示卡
 - 🟢 本月 vs 上月同期摘要
-- 🟢 月份切換器（明細 tab）+ 備註/日期/金額搜尋 + 分類 chip 多選 + 類型切換
-- 🟢 每日趨勢折線（手機）+ 分類圓餅（手機 / 桌機）
+- 🟢 共享月份切換器（Records → Today/Charts/Reports 同步）+ 備註/日期/金額搜尋 + 分類 chip 多選 + 類型切換
+- 🟢 Records 列表 / 日曆模式切換；月曆每格顯示當日收支與筆數，點日期看當日紀錄
+- 🟢 每日趨勢折線（手機 / 桌機）+ 分類圓餅（手機 / 桌機）
 - 🟢 報告：本月 vs 上月、Top 5 分類、Top 5 單筆
 - 🟢 分類預算 + 進度條 + 80% / 100% 顏色警示
 
 **設定與資料**
 - 🟢 暗色模式（手動切換、`localStorage` 持久化、`index.html` 預載防閃爍）
 - 🟢 匯入/匯出 JSON（id 重複略過、類別以 `type|name` 配對、budget 比較 `updatedAt`）
-- 🟢 PWA manifest + maskable icon（差 service worker 才能離線）
+- 🟢 匯入/匯出 CSV（交易明細對接 Excel / Sheets；相同 id 略過）
+- 🟢 PWA manifest + maskable icon + `vite-plugin-pwa` service worker
+- 🟢 桌機版接上 TodayHint / MonthSummary / BudgetProgress / DailyTrend / PieChart / 選定月紀錄
 
 ## 常用指令
 
@@ -231,8 +234,8 @@ npm run preview    # 預覽 build 結果
 
 | 優先 | 功能 | 估時 | 判斷 |
 |---|---|---:|---|
-| 1 | 重複交易規則 | 8-12h | 加 `RecurringRule` 表 + 啟動 catch-up，訂閱/房租/薪資最省手動 |
-| 2 | Vitest + migration/dataIO 測試 | 4-6h | 使用者感知低，但 schema、匯入匯出、migration 之後會更敢改 |
+| 1 | Vitest + migration/dataIO 測試 | 4-6h | 先保護 migration、JSON/CSV 匯入匯出、運算式；接下來 recurring / 帳戶 / 轉帳都會動 schema |
+| 2 | 重複交易規則 | 8-12h | 加 `RecurringRule` 表 + 啟動 catch-up，Netflix、房租、薪資、保險、電話費最省手動 |
 | 3 | recharts 動態 import / manualChunks | 4h | bundle 可瘦身，適合 PWA 後續優化 |
 | 4 | 帳戶 + 轉帳交易 | 10-16h | 現金/信用卡/銀行分流很實用，但 schema 與 UI 面較大 |
 | 5 | PIN / WebAuthn 解鎖 | 10-14h | 隱私價值高；若沒有加密，需清楚定位為「防旁人打開」 |
@@ -255,10 +258,10 @@ npm run preview    # 預覽 build 結果
 ## 已知限制 / 該知道的坑
 
 - **手機 emoji 跨平台不一致**：iOS / Windows / Android 的 🍱 長得不一樣 — 改用 lucide icon 可解但放棄 emoji 的趣味。
-- **bundle 大小**：recharts + lucide 全套讓 build 約 730KB（gzip 213KB）。`CategoryIcon` 用白名單 import 控制 lucide 的 footprint。Week 3 PWA 化前再評估 manualChunks 切 vendor。
+- **bundle 大小**：recharts + lucide 讓 build 仍有 >500KB chunk 警告。`CategoryIcon` 用白名單 import 控制 lucide 的 footprint；下一步評估 recharts dynamic import / manualChunks。
 - **沒有 PIN/雲端同步**：記帳很私密但目前裸奔。
 - **`crypto.randomUUID` 兼容**：在 `migration.ts` 與 `ExpenseContext.tsx` 都加了 fallback。
-- **沒有測試**：bug fix 與 schema migration 改動要靠手動驗證 + `npm run build` 的 TS 檢查。
+- **沒有測試**：bug fix、schema migration、dataIO 改動仍靠手動驗證 + `npm run build` 的 TS 檢查；下一步優先補 Vitest。
 
 ## 給未來 Claude 的提醒
 

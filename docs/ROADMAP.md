@@ -72,8 +72,8 @@
 
 | # | 功能 | 估時 | CP 判斷 |
 |---|---|---:|---|
-| 1 | 重複交易規則（Recurring） | 8-12h | 每月固定支出/收入省很多手動，需 schema + catch-up |
-| 2 | Vitest + migration/dataIO/expression 測試 | 4-6h | 使用者看不到，但會保護後續 schema 與匯入匯出 |
+| 1 | Vitest + migration/dataIO/expression 測試 | 4-6h | 先保護 migration、JSON/CSV 匯入匯出、運算式；接下來 recurring / 帳戶 / 轉帳都會動 schema |
+| 2 | 重複交易規則（Recurring） | 8-12h | 每月固定支出/收入省很多手動，需 schema + catch-up |
 | 3 | recharts 動態 import / manualChunks | 4h | 降低初始 bundle，適合 PWA 後續優化 |
 
 ### P1：實用但牽動較大
@@ -106,7 +106,7 @@
 
 ## 建議節奏
 
-- Sprint A：Recurring、測試、bundle 切片。
+- Sprint A：測試、Recurring、bundle 切片。
 - Sprint B：PIN/WebAuthn、帳戶/轉帳、訂閱偵測。
 - Sprint C：Charts 熱力圖、語音輸入、AI 分類建議。
 
