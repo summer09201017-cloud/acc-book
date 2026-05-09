@@ -12,6 +12,7 @@ import {
   Smartphone, Laptop, Wifi, Cloud,
   Dog, Cat, Baby, Users, Sparkles, Star,
   Dumbbell, Leaf, Sun, Moon,
+  Building2, Undo2,
   type LucideIcon,
 } from 'lucide-react';
 import { Category } from '../db/schema';
@@ -32,6 +33,7 @@ export const ICON_REGISTRY: Record<string, LucideIcon> = {
   Smartphone, Laptop, Wifi, Cloud,
   Dog, Cat, Baby, Users, Sparkles, Star,
   Dumbbell, Leaf, Sun, Moon,
+  Building2, Undo2,
 };
 
 export const ICON_NAMES = Object.keys(ICON_REGISTRY);

@@ -36,3 +36,6 @@ export interface AppMeta {
 
 export const SCHEMA_VERSION = 3;
 export const META_MIGRATION_DONE = 'migrationFromV1Done';
+// Bumped each time we ship a refresh that rewrites built-in defaults' emoji / name / sortOrder.
+// Increment this constant when adding a new refresh pass; old passes can be retired once everyone has run them.
+export const META_BUILTIN_REFRESH = 'builtinRefreshV2Done';

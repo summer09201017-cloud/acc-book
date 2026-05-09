@@ -182,7 +182,7 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="例如：午餐、薪水"
+            placeholder="例如：午餐、薪資"
           />
         </div>
 

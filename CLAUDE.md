@@ -35,8 +35,8 @@ src/
 ├── db/
 │   ├── schema.ts                 型別 + SCHEMA_VERSION（含 Category.iconName 選填欄位）
 │   ├── db.ts                     Dexie 實例：transactions / categories / budgets / meta
-│   ├── defaultCategories.ts      13 個預設類別 + V1 對照表 + CATEGORY_COLOR_PALETTE
-│   └── migration.ts              localStorage v1 → IndexedDB v2 自動遷移
+│   ├── defaultCategories.ts      30 個預設類別（emoji-only）+ BUILTIN_RENAMES + V1 對照 + 色盤
+│   └── migration.ts              v1→v2 + builtin refresh + builtin top-up
 ├── context/
 │   └── ExpenseContext.tsx        封裝 DB + categories + budgets + toast；useLiveQuery 即時訂閱
 ├── hooks/
@@ -79,10 +79,10 @@ src/
   type: 'income' | 'expense';
   name: string;              // 飲食、交通…
   emoji: string;             // 🍱 — 預設可視化；空字串時 fallback 到 iconName
-  iconName?: string;         // lucide-react 元件名（CategoryIcon 認得的白名單）
+  iconName?: string;         // lucide-react 元件名（CategoryIcon 認得的白名單）；built-in 不再帶
   bgColor: string;           // #FFE4B5（圓底）
-  group: string;             // 日常 / 享樂 / 健康 / 成長 / 其他 / 固定 / 額外 / 理財
-  isBuiltin: boolean;        // 預設類別 = true，UI 不允許刪除（但可改顏色/圖示）
+  group: string;             // 日常 / 享樂 / 健康 / 成長 / 固定 / 家庭 / 公益 / 額外 / 理財 / 其他
+  isBuiltin: boolean;        // 預設類別 = true，UI 不允許刪除（但可改顏色/圖示/emoji）
   sortOrder: number;
 }
 ```
@@ -110,16 +110,25 @@ src/
 ```
 
 ### `AppMeta`
-key/value 雜項；目前只用 `migrationFromV1Done`。
+key/value 雜項；目前用 `migrationFromV1Done` 與 `builtinRefreshV2Done`。
 
-## 遷移規則（v1 → v2）
+## 遷移與 Builtin 同步
 
-第一次啟動觸發 `runMigrationIfNeeded()`：
-1. 若 `meta.migrationFromV1Done === true`，跳過。
-2. 若 `categories` 表為空，先 seed 13 個預設類別。
-3. 讀 `localStorage["expense-transactions"]`，依 `V1_CATEGORY_MAP`（food→飲食…）轉成新 `Transaction`，找不到對應就丟到「其他」。
-4. 把 v1 原始 JSON **備份**到 `localStorage["expense-transactions-v1-backup"]` 後，移除 live key。
-5. 設 `meta.migrationFromV1Done = true`。
+`runMigrationIfNeeded()` 啟動時跑三件事：
+
+1. **v1 → v2**（`migrationFromV1Done` 為 false 時跑一次）
+   - 若 `categories` 表為空，先 seed 全部 `DEFAULT_CATEGORIES`（目前 30 個）
+   - 讀 `localStorage["expense-transactions"]`，依 `V1_CATEGORY_MAP` 轉成 `Transaction`，找不到對應丟「其他」
+   - 把 v1 原始 JSON **備份**到 `localStorage["expense-transactions-v1-backup"]`
+   - 設 `migrationFromV1Done = true`，順帶設 `builtinRefreshV2Done = true`（新用戶不用跑 refresh）
+
+2. **Builtin refresh**（`builtinRefreshV2Done` 為 false 時跑一次）三 phase：
+   - **Phase 1 改名**：依 `BUILTIN_RENAMES` 把舊名 builtin 改成新名（例：`學習 → 教育`、`薪水 → 薪資`），保留 `id` 不打斷 transactions/budgets
+   - **Phase 2 重整外觀**：把所有對得上的 builtin 的 `emoji / bgColor / group / sortOrder` 覆寫成新 spec，並清掉 `iconName`（builtin 改走 emoji-only）
+   - **Phase 3 降級孤兒**：spec 已不再列入的 builtin（例：歷史中曾經短暫存在的 `飲料 / 服飾 / 房租`）改成 `isBuiltin: false`，使用者可在管理頁編輯/刪除
+   - 設 `builtinRefreshV2Done = true`
+
+3. **Builtin top-up**（每次啟動都跑、idempotent）：比對 `DEFAULT_CATEGORIES` 與現有 `categories`，依 `type|name` 補上缺的內建分類。已有相同名稱的（含使用者自訂）視為使用者擁有，**不覆寫**。
 
 備份永遠不刪 — 遇到資料疑慮可手動還原。
 
@@ -145,27 +154,42 @@ key/value 雜項；目前只用 `migrationFromV1Done`。
 
 `ICON_REGISTRY`（`src/components/CategoryIcon.tsx`）是手動 curate 的白名單（約 50 個），保證 tree-shaking 有效。新增 icon 要同時 import + 加進 registry。
 
-預設 13 個類別都同時帶 `emoji + iconName`，所以即使使用者把 emoji 清空仍有合理 fallback。自訂類別建立時可二擇一。
+**Built-in 一律 emoji**（沒有 `iconName`），所以使用者若把 builtin 的 emoji 清空，會看到 `HelpCircle` — 這是接受的取捨。自訂類別仍可在 emoji / lucide icon 之間二選一。
 
 ## 已完成功能
 
-- 🟢 5-tab 導覽 + IndexedDB（Dexie）
-- 🟢 13 個預設分類 + 自訂 emoji + lucide icon fallback
-- 🟢 **自訂分類**（新增 / 編輯 / 刪除；預設類別只能改外觀，刪自訂時 transactions 自動轉到「其他」）
-- 🟢 新增紀錄含算式預覽（`120+80*2`）
-- 🟢 編輯紀錄（點鉛筆 icon）
-- 🟢 刪除紀錄含 5 秒 Undo toast
-- 🟢 **長按紀錄複製到今天**（500ms，跳過按鈕區塊）
-- 🟢 快速金額按鈕（50/100/500/1000，純整數可累加）
-- 🟢 月份切換器（明細 tab，含「全部 / 回到本月」）
-- 🟢 備註/日期/金額關鍵字搜尋 + 分類 chip 多選 + 類型切換
-- 🟢 暗色模式（手動切換、`localStorage` 持久化、index.html 預載防閃爍）
-- 🟢 今日花費 / 本月剩 N 天均 Y 提示卡
-- 🟢 本月 vs 上月、Top 5 分類、Top 5 單筆報告
-- 🟢 每日趨勢折線 + 分類圓餅
-- 🟢 分類預算 + 進度條 + 80%/100% 顏色變化
-- 🟢 匯入/匯出 JSON（合併策略：相同 id 略過；類別以 type|name 配對；budget 比較 updatedAt）
+**核心架構**
+- 🟢 5-tab 手機 + 雙欄桌機雙佈局，FAB + Modal 新增
+- 🟢 IndexedDB（Dexie 4）+ `useLiveQuery` 即時訂閱
+- 🟢 v1（localStorage）→ v2（IndexedDB）資料遷移，含原始 JSON 備份永久保留
+- 🟢 Builtin refresh / top-up 兩段式同步機制（升級時自動補新 builtin、改名 / 重整外觀 / 降級孤兒）
+
+**分類系統**
+- 🟢 30 個預設分類（20 expense + 10 income，emoji-only）
+- 🟢 自訂分類 CRUD（新增 / 編輯 / 刪除；刪自訂時 transactions 自動轉到「其他」）
+- 🟢 Built-in 保護：UI 隱藏刪除鈕 + Context 拒絕；外觀（emoji/icon/color）放行
+- 🟢 `CategoryIcon` 共用元件（emoji 優先、lucide icon fallback、HelpCircle 兜底）
+
+**記帳體驗**
+- 🟢 算式預覽（`120+80*2` 自動算出）
+- 🟢 快速金額按鈕（50/100/500/1000 累加）
+- 🟢 編輯紀錄（鉛筆 icon → Modal）
+- 🟢 刪除紀錄 5 秒 Undo toast
+- 🟢 長按紀錄複製到今天（500ms，跳過按鈕區）
 - 🟢 千分位顯示
+
+**檢視與分析**
+- 🟢 今日花費 / 本月剩 N 天均 Y 提示卡
+- 🟢 本月 vs 上月同期摘要
+- 🟢 月份切換器（明細 tab）+ 備註/日期/金額搜尋 + 分類 chip 多選 + 類型切換
+- 🟢 每日趨勢折線（手機）+ 分類圓餅（手機 / 桌機）
+- 🟢 報告：本月 vs 上月、Top 5 分類、Top 5 單筆
+- 🟢 分類預算 + 進度條 + 80% / 100% 顏色警示
+
+**設定與資料**
+- 🟢 暗色模式（手動切換、`localStorage` 持久化、`index.html` 預載防閃爍）
+- 🟢 匯入/匯出 JSON（id 重複略過、類別以 `type|name` 配對、budget 比較 `updatedAt`）
+- 🟢 PWA manifest + maskable icon（差 service worker 才能離線）
 
 ## 常用指令
 
@@ -188,19 +212,39 @@ npm run preview    # 預覽 build 結果
 6. **暗色模式覆寫遵循 CSS 變數**：絕大多數元件用 `var(--card-bg)` 等變數，dark theme 只 override 變數即可；只有少數寫死的 `#f3f4f6` 等需要明確 override（已在 index.css 底部處理）。
 7. **註解寫 why，不寫 what**：好命名 + 型別已足以說明 what。
 
-## Roadmap
+## Roadmap — 真正待做（依 CP 值排序，詳見 `docs/ROADMAP.md`）
 
-✅ Week 1 完成：5-tab + IndexedDB 遷移 + 類別 schema v2 + FAB + 彩色圓底。
-✅ Week 2 完成（記帳體驗）：編輯 / Undo 刪除 / 長按複製 / 快速金額 / 月份切換 / 搜尋。
-✅ Week 3 部分完成：報告 tab、每日趨勢、分類預算、匯出/匯入、自訂分類、暗色模式。
+> Week 1 / 2 / 3 的「按週切」標籤已退役 — 全部都已落地，沒必要再分週。下面是還沒做的清單。
 
-### 未做（Week 3 收尾）
-- 帳戶 + 轉帳交易（schema 需擴 `Account` 表）
-- 自訂數字鍵盤（含運算預覽 — 目前只在文字框內顯示預覽）
-- 月度熱力圖（GitHub 草地風）
-- 重複/訂閱規則（自動加每月固定支出）
-- PIN 鎖 / WebAuthn
-- PWA 離線（manifest 已備好，差 service worker）
+### 🟢 CP 爆表（先做這幾個）
+
+- **Service Worker / 可安裝 PWA**：`manifest` 已備，加 `vite-plugin-pwa` 一行配置就完工（1-2h）
+- **跨 tab 月份切換器共享**：今 Records 月份是 local state，提到 Context 後 Today/Charts/Reports 都跟著走（4-6h）
+- **CSV 匯出/匯入**：dataIO 的 JSON 已有，多寫一支 converter 對接 Excel/Sheets（3-4h）
+- **重複交易規則**：加 `RecurringRule` 表 + 啟動時 catch-up；訂閱族每月省 5-10 筆手動（8-12h）
+- **桌機版接上新卡片**：BudgetProgressCard / TodayHintCard / DailyTrendCard 目前只接到手機 tab，桌機右欄空著（4-6h）
+
+### 🟡 CP 中
+
+- **帳戶 + 轉帳交易**：schema bump，加 `Account` + `Transaction.accountId` + 第三類型 `transfer`（10-16h）
+- **PIN / WebAuthn 解鎖**：開機 gate；對「老婆/同事會看手機」族群剛需（10-14h）
+- **月度熱力圖**：GitHub 草地風、365 天每天一個方塊（8h）
+- **訂閱偵測**：自動找出「金額+商家+月頻率」相似的紀錄並建議建 recurring rule（8-10h）
+- **Vitest + migration / dataIO 測試**：保命，schema 改動才不會裸奔（4-6h）
+- **recharts 動態 import / manualChunks**：首頁 bundle 砍 30%+（4h）
+
+### 🔵 CP 低但有趣
+
+- 語音輸入（Web Speech API、6-10h）
+- OCR 收據（Tesseract.js、20-30h，demo 殺手）
+- AI 分類建議（規則 + LLM、8-12h）
+- 多幣別 + 即時匯率（12-15h）
+- 打卡 streak / 徽章（6-8h）
+- 月底自動生成圖片報告（10-15h）
+
+### ❄️ 已凍結 / 待討論
+- 自訂數字鍵盤 — 目前運算預覽用文字框已夠用，加實體鍵盤 ROI 不高
+- 6th 分頁（日曆等）— 待設計討論：iOS HIG 建議最多 5 tab；要加得評估抽掉哪一個或改成抽屜/子頁
 
 ## 已知限制 / 該知道的坑
 
