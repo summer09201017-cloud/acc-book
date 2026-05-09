@@ -7,6 +7,7 @@ import { PieChartCard } from './components/PieChartCard';
 import { TabBar } from './components/TabBar';
 import { Fab } from './components/Fab';
 import { Modal } from './components/Modal';
+import { Toast } from './components/Toast';
 import { TodayTab } from './components/tabs/TodayTab';
 import { RecordsTab } from './components/tabs/RecordsTab';
 import { ChartsTab } from './components/tabs/ChartsTab';
@@ -26,7 +27,7 @@ const renderTab = (tab: TabKey) => {
 };
 
 const Shell: React.FC = () => {
-  const { isReady } = useExpense();
+  const { isReady, editingTransaction, closeEditor } = useExpense();
   const [tab, setTab] = useActiveTab('today');
   const [fabOpen, setFabOpen] = useState(false);
 
@@ -72,6 +73,15 @@ const Shell: React.FC = () => {
         <TransactionForm onSubmitted={() => setFabOpen(false)} />
       </Modal>
 
+      <Modal
+        open={editingTransaction !== null}
+        onClose={closeEditor}
+        title="編輯紀錄"
+      >
+        <TransactionForm editing={editingTransaction} onSubmitted={closeEditor} />
+      </Modal>
+
+      <Toast />
       <TabBar active={tab} onChange={setTab} />
     </div>
   );
