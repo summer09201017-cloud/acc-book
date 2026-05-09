@@ -2,7 +2,14 @@ import React, { useRef, useState } from 'react';
 import { Download, Upload, Trash2, Moon, Sun } from 'lucide-react';
 import { useExpense } from '../../context/ExpenseContext';
 import { useTheme } from '../../hooks/useTheme';
-import { buildExportPayload, downloadJson, importFromJson } from '../../utils/dataIO';
+import {
+  buildExportPayload,
+  buildTransactionsCsv,
+  downloadCsv,
+  downloadJson,
+  importFromCsv,
+  importFromJson,
+} from '../../utils/dataIO';
 import { CategoryManagerCard } from '../CategoryManagerCard';
 
 export const SettingsTab: React.FC = () => {
@@ -16,7 +23,9 @@ export const SettingsTab: React.FC = () => {
   const { theme, toggle: toggleTheme } = useTheme();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [importingCsv, setImportingCsv] = useState(false);
 
   const handleExport = async () => {
     try {
@@ -30,7 +39,20 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
+  const handleExportCsv = async () => {
+    try {
+      const csv = await buildTransactionsCsv();
+      const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+      downloadCsv(`expense-transactions-${stamp}.csv`, csv);
+      showToast({ message: '已匯出 CSV' });
+    } catch (e) {
+      console.error(e);
+      showToast({ message: 'CSV 匯出失敗' });
+    }
+  };
+
   const handleImportClick = () => fileInputRef.current?.click();
+  const handleCsvImportClick = () => csvInputRef.current?.click();
 
   const handleImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -48,6 +70,24 @@ export const SettingsTab: React.FC = () => {
       showToast({ message: '匯入失敗：請確認檔案格式' });
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleCsvImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    setImportingCsv(true);
+    try {
+      const summary = await importFromCsv(f);
+      showToast({
+        message: `已匯入 CSV：紀錄 +${summary.txAdded}（略過 ${summary.txSkipped}）`,
+      }, 6000);
+    } catch (e) {
+      console.error(e);
+      showToast({ message: 'CSV 匯入失敗：請確認欄位格式' });
+    } finally {
+      setImportingCsv(false);
     }
   };
 
@@ -73,7 +113,7 @@ export const SettingsTab: React.FC = () => {
       <div className="card">
         <h2 className="card-title">資料備份</h2>
         <p className="muted" style={{ marginBottom: '0.75rem' }}>
-          將所有紀錄、分類、預算匯出成 JSON，或從備份檔還原。匯入採合併策略，相同 id 的紀錄會略過。
+          JSON 會包含所有紀錄、分類、預算；CSV 只匯出交易明細，方便丟進 Excel / Sheets。匯入採合併策略，相同 id 的紀錄會略過。
         </p>
         <div className="settings-actions">
           <button type="button" className="settings-btn primary" onClick={handleExport}>
@@ -89,12 +129,32 @@ export const SettingsTab: React.FC = () => {
             <Upload size={16} />
             <span>{importing ? '匯入中…' : '匯入 JSON'}</span>
           </button>
+          <button type="button" className="settings-btn primary" onClick={handleExportCsv}>
+            <Download size={16} />
+            <span>匯出 CSV</span>
+          </button>
+          <button
+            type="button"
+            className="settings-btn"
+            onClick={handleCsvImportClick}
+            disabled={importingCsv}
+          >
+            <Upload size={16} />
+            <span>{importingCsv ? '匯入中…' : '匯入 CSV'}</span>
+          </button>
           <input
             ref={fileInputRef}
             type="file"
             accept="application/json,.json"
             style={{ display: 'none' }}
             onChange={handleImportChange}
+          />
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept="text/csv,.csv"
+            style={{ display: 'none' }}
+            onChange={handleCsvImportChange}
           />
         </div>
       </div>

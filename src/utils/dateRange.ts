@@ -28,8 +28,23 @@ export function monthRange(year: number, month: number): MonthRange {
   };
 }
 
+export function monthRangeFromYm(yearMonth: string): MonthRange {
+  const [year, month] = yearMonth.split('-').map(Number);
+  return monthRange(year, month);
+}
+
+export function formatYearMonth(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-').map(Number);
+  return `${year} 年 ${month} 月`;
+}
+
 export function currentMonth(now = new Date()): MonthRange {
   return monthRange(now.getFullYear(), now.getMonth() + 1);
+}
+
+export function previousMonthOf(range: MonthRange): MonthRange {
+  if (range.month === 1) return monthRange(range.year - 1, 12);
+  return monthRange(range.year, range.month - 1);
 }
 
 export function previousMonth(now = new Date()): MonthRange {

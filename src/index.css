@@ -70,6 +70,14 @@ body {
   }
 }
 
+.dashboard-section,
+.left-column,
+.right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 /* Cards */
 .card {
   background: var(--card-bg);
@@ -754,6 +762,48 @@ input:focus {
 }
 
 /* ===== Records toolbar / chips ===== */
+.records-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+@media (min-width: 700px) {
+  .records-header {
+    flex-direction: row;
+    align-items: center;
+  }
+  .records-header .month-picker { flex: 1; }
+}
+.records-view-toggle {
+  display: inline-flex;
+  align-self: stretch;
+  background: #f3f4f6;
+  padding: 0.25rem;
+  border-radius: 8px;
+  gap: 0.25rem;
+}
+.records-view-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.records-view-btn.active {
+  background: var(--card-bg);
+  color: var(--text-main);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
 .records-toolbar {
   display: flex;
   flex-direction: column;
@@ -845,6 +895,147 @@ input:focus {
 .records-summary {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+/* ===== Records calendar ===== */
+.records-calendar-card {
+  padding: 1rem;
+}
+.records-calendar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+.records-calendar-head .card-title {
+  margin-bottom: 0.15rem;
+}
+.records-calendar-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.records-calendar-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.records-calendar-total .income,
+.records-calendar-amount.income {
+  color: var(--income);
+}
+.records-calendar-total .expense,
+.records-calendar-amount.expense {
+  color: var(--expense);
+}
+.records-calendar-weekdays,
+.records-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+.records-calendar-weekdays {
+  margin-bottom: 0.4rem;
+}
+.records-calendar-weekday {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.records-calendar-cell {
+  min-height: 76px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-main);
+  padding: 0.4rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.records-calendar-cell:hover {
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+.records-calendar-cell.empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+.records-calendar-cell.today {
+  border-color: rgba(59, 130, 246, 0.55);
+}
+.records-calendar-cell.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+}
+.records-calendar-cell.income-only {
+  background: rgba(16, 185, 129, 0.08);
+}
+.records-calendar-cell.expense-level-1 { background: rgba(239, 68, 68, 0.06); }
+.records-calendar-cell.expense-level-2 { background: rgba(239, 68, 68, 0.1); }
+.records-calendar-cell.expense-level-3 { background: rgba(239, 68, 68, 0.15); }
+.records-calendar-cell.expense-level-4 { background: rgba(239, 68, 68, 0.22); }
+.records-calendar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.records-calendar-day-number {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.records-calendar-count {
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.records-calendar-amounts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.records-calendar-amount {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.67rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+@media (max-width: 420px) {
+  .records-calendar-card { padding: 0.8rem; }
+  .records-calendar-weekdays,
+  .records-calendar-grid { gap: 0.25rem; }
+  .records-calendar-cell {
+    min-height: 66px;
+    padding: 0.3rem;
+  }
+  .records-calendar-day-number { font-size: 0.76rem; }
+  .records-calendar-amount { font-size: 0.62rem; }
 }
 
 /* ===== Reports ===== */
@@ -1103,7 +1294,7 @@ input:focus {
   grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
   padding: 0.4rem 0.5rem;
   background: #f3f4f6;
   border-radius: 12px;
@@ -1294,13 +1485,23 @@ input:focus {
 [data-theme="dark"] .records-search-clear:hover,
 [data-theme="dark"] .modal-close:hover { background: #1f2937; color: var(--text-main); }
 [data-theme="dark"] .records-type-toggle,
+[data-theme="dark"] .records-view-toggle,
 [data-theme="dark"] .type-toggle,
 [data-theme="dark"] .month-picker { background: #0f172a; }
 [data-theme="dark"] .records-type-btn.active,
+[data-theme="dark"] .records-view-btn.active,
 [data-theme="dark"] .month-picker-nav,
 [data-theme="dark"] .month-picker-all { background: #1f2937; color: var(--text-main); }
 [data-theme="dark"] .month-picker-nav:hover { background: #334155; }
 [data-theme="dark"] .records-chip:hover { background: #1f2937; }
+[data-theme="dark"] .records-calendar-cell { background: #0f172a; }
+[data-theme="dark"] .records-calendar-cell:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.24); }
+[data-theme="dark"] .records-calendar-cell.income-only { background: rgba(16, 185, 129, 0.16); }
+[data-theme="dark"] .records-calendar-cell.expense-level-1 { background: rgba(239, 68, 68, 0.12); }
+[data-theme="dark"] .records-calendar-cell.expense-level-2 { background: rgba(239, 68, 68, 0.18); }
+[data-theme="dark"] .records-calendar-cell.expense-level-3 { background: rgba(239, 68, 68, 0.24); }
+[data-theme="dark"] .records-calendar-cell.expense-level-4 { background: rgba(239, 68, 68, 0.32); }
+[data-theme="dark"] .records-calendar-count { background: rgba(226, 232, 240, 0.12); }
 [data-theme="dark"] .settings-btn:hover { background: #1f2937; }
 [data-theme="dark"] .quick-amount-btn:hover { background: #1f2937; border-color: #475569; }
 [data-theme="dark"] .empty-chart { border-color: #1f2937; }

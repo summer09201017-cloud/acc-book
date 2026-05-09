@@ -1,24 +1,29 @@
 import React, { useMemo } from 'react';
 import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { useExpense } from '../context/ExpenseContext';
-import { currentMonth, lastMonthSamePeriod, sumInRange } from '../utils/dateRange';
+import { currentMonth, monthRangeFromYm, pad2, previousMonthOf, sumInRange } from '../utils/dateRange';
 
 export const MonthSummaryCard: React.FC = () => {
-  const { transactions } = useExpense();
+  const { transactions, activeMonth } = useExpense();
 
   const { thisMonth, lastSamePeriod, diff, ratio } = useMemo(() => {
     const now = new Date();
-    const cm = currentMonth(now);
-    const lp = lastMonthSamePeriod(now);
+    const current = currentMonth(now);
+    const cm = monthRangeFromYm(activeMonth);
+    const pm = previousMonthOf(cm);
     const today = now.toISOString().slice(0, 10);
+    const isCurrentMonth = cm.year === current.year && cm.month === current.month;
+    const cutoffDay = isCurrentMonth ? now.getDate() : cm.daysInMonth;
+    const thisEnd = isCurrentMonth ? today : cm.end;
+    const lastEnd = `${pm.year}-${pad2(pm.month)}-${pad2(Math.min(cutoffDay, pm.daysInMonth))}`;
 
-    // "This month so far" = month start through today (inclusive).
-    const thisMonth = sumInRange(transactions, 'expense', cm.start, today);
-    const lastSamePeriod = sumInRange(transactions, 'expense', lp.start, lp.end);
+    // Current active month uses month-to-date; past/future months use the full month.
+    const thisMonth = sumInRange(transactions, 'expense', cm.start, thisEnd);
+    const lastSamePeriod = sumInRange(transactions, 'expense', pm.start, lastEnd);
     const diff = thisMonth - lastSamePeriod;
     const ratio = lastSamePeriod > 0 ? diff / lastSamePeriod : null;
     return { thisMonth, lastSamePeriod, diff, ratio };
-  }, [transactions]);
+  }, [activeMonth, transactions]);
 
   const trendUp = diff > 0;
   const flat = diff === 0;
@@ -29,7 +34,7 @@ export const MonthSummaryCard: React.FC = () => {
     <div className="card month-summary-card">
       <div className="month-summary-row">
         <div className="month-summary-block">
-          <span className="month-summary-label">本月支出</span>
+          <span className="month-summary-label">選定月支出</span>
           <span className="month-summary-amount">${thisMonth.toLocaleString()}</span>
         </div>
         <div className="month-summary-block">

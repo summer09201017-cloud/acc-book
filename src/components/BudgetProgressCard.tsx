@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useExpense } from '../context/ExpenseContext';
-import { currentMonth } from '../utils/dateRange';
+import { currentMonth, formatYearMonth, monthRangeFromYm } from '../utils/dateRange';
 import { CategoryIcon } from './CategoryIcon';
 import { Category } from '../db/schema';
 
@@ -20,18 +20,21 @@ const colorFor = (pct: number): string => {
 };
 
 export const BudgetProgressCard: React.FC = () => {
-  const { budgets, transactions, getCategory } = useExpense();
+  const { budgets, transactions, getCategory, activeMonth } = useExpense();
 
   const rows: Row[] = useMemo(() => {
     if (budgets.length === 0) return [];
-    const cm = currentMonth();
-    const today = new Date().toISOString().slice(0, 10);
+    const cm = monthRangeFromYm(activeMonth);
+    const now = new Date();
+    const current = currentMonth(now);
+    const isCurrentMonth = cm.year === current.year && cm.month === current.month;
+    const end = isCurrentMonth ? now.toISOString().slice(0, 10) : cm.end;
 
     const list: Row[] = budgets.map((b) => {
       const cat = getCategory(b.categoryId);
       const spent = transactions
         .filter((t) => t.type === 'expense' && t.categoryId === b.categoryId
-          && t.date >= cm.start && t.date <= today)
+          && t.date >= cm.start && t.date <= end)
         .reduce((s, t) => s + t.amount, 0);
       const limit = b.monthlyLimit;
       const pct = limit > 0 ? spent / limit : 0;
@@ -47,12 +50,12 @@ export const BudgetProgressCard: React.FC = () => {
 
     // Show the most-strained budgets first; fully-spent up top.
     return list.sort((a, b) => b.pct - a.pct);
-  }, [budgets, transactions, getCategory]);
+  }, [activeMonth, budgets, transactions, getCategory]);
 
   if (rows.length === 0) {
     return (
       <div className="card">
-        <h2 className="card-title">本月預算</h2>
+        <h2 className="card-title">{formatYearMonth(activeMonth)}預算</h2>
         <div className="empty-state">
           <p>還沒有設定任何分類預算。到「設定」分頁加一個吧！</p>
         </div>
@@ -62,7 +65,7 @@ export const BudgetProgressCard: React.FC = () => {
 
   return (
     <div className="card">
-      <h2 className="card-title">本月預算</h2>
+      <h2 className="card-title">{formatYearMonth(activeMonth)}預算</h2>
       <ul className="budget-list">
         {rows.map((r) => {
           const fillPct = Math.min(r.pct, 1) * 100;

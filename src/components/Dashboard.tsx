@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
 import { useExpense } from '../context/ExpenseContext';
 import { ArrowUpCircle, ArrowDownCircle, Wallet } from 'lucide-react';
+import { monthRangeFromYm } from '../utils/dateRange';
 
 export const Dashboard: React.FC = () => {
-  const { transactions } = useExpense();
+  const { transactions, activeMonth } = useExpense();
 
   const { totalIncome, totalExpense, balance } = useMemo(() => {
+    const range = monthRangeFromYm(activeMonth);
     return transactions.reduce(
       (acc, curr) => {
+        if (curr.date < range.start || curr.date > range.end) return acc;
         if (curr.type === 'income') {
           acc.totalIncome += curr.amount;
           acc.balance += curr.amount;
@@ -19,7 +22,7 @@ export const Dashboard: React.FC = () => {
       },
       { totalIncome: 0, totalExpense: 0, balance: 0 }
     );
-  }, [transactions]);
+  }, [activeMonth, transactions]);
 
   return (
     <div className="dashboard">
@@ -28,7 +31,7 @@ export const Dashboard: React.FC = () => {
           <Wallet size={24} />
         </div>
         <div className="summary-info">
-          <h3>總結餘</h3>
+          <h3>選定月結餘</h3>
           <p className="amount">${balance.toLocaleString()}</p>
         </div>
       </div>
@@ -39,7 +42,7 @@ export const Dashboard: React.FC = () => {
             <ArrowUpCircle size={24} />
           </div>
           <div className="summary-info">
-            <h3>總收入</h3>
+            <h3>選定月收入</h3>
             <p className="amount">${totalIncome.toLocaleString()}</p>
           </div>
         </div>
@@ -49,7 +52,7 @@ export const Dashboard: React.FC = () => {
             <ArrowDownCircle size={24} />
           </div>
           <div className="summary-info">
-            <h3>總支出</h3>
+            <h3>選定月支出</h3>
             <p className="amount">${totalExpense.toLocaleString()}</p>
           </div>
         </div>

@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ExpenseProvider, useExpense } from './context/ExpenseContext';
 import { Dashboard } from './components/Dashboard';
 import { TransactionForm } from './components/TransactionForm';
 import { TransactionList } from './components/TransactionList';
 import { PieChartCard } from './components/PieChartCard';
+import { TodayHintCard } from './components/TodayHintCard';
+import { MonthSummaryCard } from './components/MonthSummaryCard';
+import { BudgetProgressCard } from './components/BudgetProgressCard';
+import { DailyTrendCard } from './components/DailyTrendCard';
 import { TabBar } from './components/TabBar';
 import { Fab } from './components/Fab';
 import { Modal } from './components/Modal';
@@ -27,9 +31,13 @@ const renderTab = (tab: TabKey) => {
 };
 
 const Shell: React.FC = () => {
-  const { isReady, editingTransaction, closeEditor } = useExpense();
+  const { isReady, editingTransaction, closeEditor, transactions, activeMonth } = useExpense();
   const [tab, setTab] = useActiveTab('today');
   const [fabOpen, setFabOpen] = useState(false);
+  const desktopMonthItems = useMemo(
+    () => transactions.filter((tx) => tx.date.startsWith(activeMonth)),
+    [activeMonth, transactions]
+  );
 
   if (!isReady) {
     return (
@@ -54,15 +62,19 @@ const Shell: React.FC = () => {
       {/* Desktop: original two-column layout */}
       <main className="desktop-main">
         <div className="dashboard-section">
+          <TodayHintCard />
           <Dashboard />
         </div>
         <div className="content-grid">
           <div className="left-column">
             <TransactionForm />
+            <BudgetProgressCard />
           </div>
           <div className="right-column">
+            <MonthSummaryCard />
+            <DailyTrendCard />
             <PieChartCard />
-            <TransactionList />
+            <TransactionList title="選定月紀錄" items={desktopMonthItems} />
           </div>
         </div>
       </main>

@@ -212,39 +212,45 @@ npm run preview    # 預覽 build 結果
 6. **暗色模式覆寫遵循 CSS 變數**：絕大多數元件用 `var(--card-bg)` 等變數，dark theme 只 override 變數即可；只有少數寫死的 `#f3f4f6` 等需要明確 override（已在 index.css 底部處理）。
 7. **註解寫 why，不寫 what**：好命名 + 型別已足以說明 what。
 
-## Roadmap — 真正待做（依 CP 值排序，詳見 `docs/ROADMAP.md`）
+## Roadmap — 已完成 vs 真正待做（詳見 `docs/ROADMAP.md`）
 
-> Week 1 / 2 / 3 的「按週切」標籤已退役 — 全部都已落地，沒必要再分週。下面是還沒做的清單。
+> Week 1 / 2 / 3 的「按週切」標籤已退役；下面只記現況與下一批工作。避免把已落地功能重新排回 roadmap。
 
-### 🟢 CP 爆表（先做這幾個）
+### 已完成（不要再排進下一輪）
 
-- **Service Worker / 可安裝 PWA**：`manifest` 已備，加 `vite-plugin-pwa` 一行配置就完工（1-2h）
-- **跨 tab 月份切換器共享**：今 Records 月份是 local state，提到 Context 後 Today/Charts/Reports 都跟著走（4-6h）
-- **CSV 匯出/匯入**：dataIO 的 JSON 已有，多寫一支 converter 對接 Excel/Sheets（3-4h）
-- **重複交易規則**：加 `RecurringRule` 表 + 啟動時 catch-up；訂閱族每月省 5-10 筆手動（8-12h）
-- **桌機版接上新卡片**：BudgetProgressCard / TodayHintCard / DailyTrendCard 目前只接到手機 tab，桌機右欄空著（4-6h）
+- **手機 5-tab / 桌機雙欄 / FAB + Modal**：主框架已成形，仍要維持最多 5 個手機 tab。
+- **IndexedDB + migration**：Dexie、`useLiveQuery`、v1 localStorage 匯入、builtin refresh/top-up 都已落地。
+- **分類系統**：30 個內建分類、自訂分類 CRUD、builtin 保護、`CategoryIcon` 共用顯示策略都已完成。
+- **記帳操作**：算式預覽、快速金額、編輯、刪除 Undo、長按複製、千分位顯示已完成。
+- **明細基礎能力**：Records tab 已有共享月份切換、列表/日曆模式、點日期看當日紀錄、搜尋、收入/支出切換、分類 chip 多選、清除篩選。
+- **分析與設定**：TodayHint、MonthSummary、BudgetProgress、DailyTrend、PieChart、Reports、暗色模式、JSON/CSV 匯入匯出、分類預算已完成。
+- **PWA**：manifest + maskable icon + `vite-plugin-pwa` service worker 已完成。
+- **桌機版**：桌機右欄已補 TodayHint、MonthSummary、BudgetProgress、DailyTrend、PieChart、選定月紀錄。
 
-### 🟡 CP 中
+### 真正待做（依 CP 值與開發時間排序）
 
-- **帳戶 + 轉帳交易**：schema bump，加 `Account` + `Transaction.accountId` + 第三類型 `transfer`（10-16h）
-- **PIN / WebAuthn 解鎖**：開機 gate；對「老婆/同事會看手機」族群剛需（10-14h）
-- **月度熱力圖**：GitHub 草地風、365 天每天一個方塊（8h）
-- **訂閱偵測**：自動找出「金額+商家+月頻率」相似的紀錄並建議建 recurring rule（8-10h）
-- **Vitest + migration / dataIO 測試**：保命，schema 改動才不會裸奔（4-6h）
-- **recharts 動態 import / manualChunks**：首頁 bundle 砍 30%+（4h）
+| 優先 | 功能 | 估時 | 判斷 |
+|---|---|---:|---|
+| 1 | 重複交易規則 | 8-12h | 加 `RecurringRule` 表 + 啟動 catch-up，訂閱/房租/薪資最省手動 |
+| 2 | Vitest + migration/dataIO 測試 | 4-6h | 使用者感知低，但 schema、匯入匯出、migration 之後會更敢改 |
+| 3 | recharts 動態 import / manualChunks | 4h | bundle 可瘦身，適合 PWA 後續優化 |
+| 4 | 帳戶 + 轉帳交易 | 10-16h | 現金/信用卡/銀行分流很實用，但 schema 與 UI 面較大 |
+| 5 | PIN / WebAuthn 解鎖 | 10-14h | 隱私價值高；若沒有加密，需清楚定位為「防旁人打開」 |
+| 6 | 訂閱偵測 | 8-10h | 在 recurring 之後做才順，自動找金額+商家+週期 |
+| 7 | 圖表 tab 365 天熱力圖 | 6-8h | 比 Records 日曆更像分析視角，適合用方案 A 補到 Charts tab |
 
-### 🔵 CP 低但有趣
+### 有趣但先放後面
 
-- 語音輸入（Web Speech API、6-10h）
-- OCR 收據（Tesseract.js、20-30h，demo 殺手）
-- AI 分類建議（規則 + LLM、8-12h）
-- 多幣別 + 即時匯率（12-15h）
-- 打卡 streak / 徽章（6-8h）
-- 月底自動生成圖片報告（10-15h）
+- 語音輸入（Web Speech API，6-10h）：一句「早餐九十五」自動填表。
+- AI 分類建議（規則 + LLM，8-12h）：由備註/商家猜分類，可先規則後 AI。
+- 月底圖片報告（10-15h）：可分享，但核心記帳價值低於 CSV/recurring。
+- 多幣別 + 匯率（12-15h）：旅行或海外消費才剛需。
+- OCR 收據（20-30h）：展示效果強，但成本與錯誤修正 UX 都重。
 
-### ❄️ 已凍結 / 待討論
-- 自訂數字鍵盤 — 目前運算預覽用文字框已夠用，加實體鍵盤 ROI 不高
-- 6th 分頁（日曆等）— 待設計討論：iOS HIG 建議最多 5 tab；要加得評估抽掉哪一個或改成抽屜/子頁
+### 暫緩 / 不建議現在做
+
+- **第 6 個 tab（日曆獨立頁）**：先用 Records 內 segmented control 解決，維持 5-tab。
+- **自訂數字鍵盤**：目前文字框 + 算式預覽已夠快，ROI 不高。
 
 ## 已知限制 / 該知道的坑
 

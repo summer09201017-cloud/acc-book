@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useExpense } from '../context/ExpenseContext';
-import { currentMonth, pad2 } from '../utils/dateRange';
+import { formatYearMonth, monthRangeFromYm, pad2 } from '../utils/dateRange';
 
 export const DailyTrendCard: React.FC = () => {
-  const { transactions } = useExpense();
+  const { transactions, activeMonth } = useExpense();
 
   const data = useMemo(() => {
-    const cm = currentMonth();
+    const cm = monthRangeFromYm(activeMonth);
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === cm.year && today.getMonth() + 1 === cm.month;
     const cutoffDay = isCurrentMonth ? today.getDate() : cm.daysInMonth;
@@ -25,7 +25,7 @@ export const DailyTrendCard: React.FC = () => {
       rows.push({ day: d, date, amount: buckets.get(date) ?? 0 });
     }
     return rows;
-  }, [transactions]);
+  }, [activeMonth, transactions]);
 
   const total = data.reduce((s, r) => s + r.amount, 0);
   const days = data.length || 1;
@@ -34,13 +34,13 @@ export const DailyTrendCard: React.FC = () => {
   return (
     <div className="card">
       <div className="chart-header">
-        <h2 className="card-title">本月每日支出</h2>
+        <h2 className="card-title">{formatYearMonth(activeMonth)}每日支出</h2>
         <div className="muted" style={{ fontSize: '0.85rem' }}>
           總計 ${total.toLocaleString()} · 日均 ${avg.toLocaleString()}
         </div>
       </div>
       {total === 0 ? (
-        <div className="empty-chart"><p>本月還沒有支出紀錄</p></div>
+        <div className="empty-chart"><p>這個月份還沒有支出紀錄</p></div>
       ) : (
         <div style={{ width: '100%', height: 240 }}>
           <ResponsiveContainer>

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, CalendarDays, List as ListIcon } from 'lucide-react';
 import { useExpense } from '../../context/ExpenseContext';
 import { TransactionList } from '../TransactionList';
 import { CategoryIcon } from '../CategoryIcon';
-import { ym } from '../../utils/dateRange';
+import { RecordsCalendar } from '../RecordsCalendar';
+import { formatYearMonth, ym, ymd } from '../../utils/dateRange';
 
 type TypeFilter = 'all' | 'expense' | 'income';
+type ViewMode = 'list' | 'calendar';
 
 const todayYM = () => ym(new Date());
 
@@ -15,19 +17,22 @@ const shiftMonth = (yearMonth: string, delta: number): string => {
   return ym(date);
 };
 
-const formatMonth = (yearMonth: string): string => {
-  const [y, m] = yearMonth.split('-').map(Number);
-  return `${y} 年 ${m} 月`;
+const formatDate = (dateString: string): string => {
+  const [y, m, d] = dateString.split('-').map(Number);
+  const weekday = ['日', '一', '二', '三', '四', '五', '六'][new Date(y, m - 1, d).getDay()];
+  return `${m}/${d}（${weekday}）`;
 };
 
 export const RecordsTab: React.FC = () => {
-  const { transactions, categories } = useExpense();
+  const { transactions, categories, activeMonth, setActiveMonth } = useExpense();
 
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [activeCategoryIds, setActiveCategoryIds] = useState<Set<string>>(new Set());
-  // null = "全部月份"; otherwise a YYYY-MM string.
-  const [monthFilter, setMonthFilter] = useState<string | null>(todayYM());
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [selectedDate, setSelectedDate] = useState<string>(ymd(new Date()));
+  const [showAllMonths, setShowAllMonths] = useState(false);
+  const monthFilter = showAllMonths ? null : activeMonth;
 
   // If the current month has no records and the user hasn't manually navigated,
   // fall back to the most recent month with data on first load.
@@ -40,9 +45,9 @@ export const RecordsTab: React.FC = () => {
     const hasCurrent = transactions.some((t) => t.date.startsWith(cm));
     if (!hasCurrent) {
       const latest = transactions[0]?.date.slice(0, 7);
-      if (latest) setMonthFilter(latest);
+      if (latest) setActiveMonth(latest);
     }
-  }, [transactions]);
+  }, [setActiveMonth, transactions]);
 
   const visibleCategories = useMemo(() => {
     if (typeFilter === 'all') return categories;
@@ -77,6 +82,26 @@ export const RecordsTab: React.FC = () => {
     return { income, expense };
   }, [transactions, monthFilter]);
 
+  useEffect(() => {
+    if (viewMode !== 'calendar' || !monthFilter) return;
+    if (selectedDate.startsWith(monthFilter)) return;
+    const today = ymd(new Date());
+    const fallback = today.startsWith(monthFilter)
+      ? today
+      : filtered.find((tx) => tx.date.startsWith(monthFilter))?.date ?? `${monthFilter}-01`;
+    setSelectedDate(fallback);
+  }, [filtered, monthFilter, selectedDate, viewMode]);
+
+  const selectedDayItems = useMemo(() => {
+    if (viewMode !== 'calendar') return [];
+    return filtered.filter((tx) => tx.date === selectedDate);
+  }, [filtered, selectedDate, viewMode]);
+
+  const shownItems = viewMode === 'calendar' ? selectedDayItems : filtered;
+  const listTitle = viewMode === 'calendar'
+    ? `${formatDate(selectedDate)} 紀錄`
+    : '所有紀錄';
+
   const toggleCategory = (id: string) => {
     setActiveCategoryIds((prev) => {
       const next = new Set(prev);
@@ -86,54 +111,106 @@ export const RecordsTab: React.FC = () => {
     });
   };
 
+  const changeViewMode = (nextMode: ViewMode) => {
+    if (nextMode === 'calendar' && showAllMonths) {
+      setShowAllMonths(false);
+      if (!selectedDate.startsWith(activeMonth)) {
+        const today = ymd(new Date());
+        setSelectedDate(today.startsWith(activeMonth) ? today : `${activeMonth}-01`);
+      }
+    }
+    setViewMode(nextMode);
+  };
+
+  const toggleAllMonths = () => {
+    if (showAllMonths) {
+      setActiveMonth(todayYM());
+      setShowAllMonths(false);
+      return;
+    }
+    setShowAllMonths(true);
+    setViewMode('list');
+  };
+
   const clearAll = () => {
     setQuery('');
     setTypeFilter('all');
     setActiveCategoryIds(new Set());
-    setMonthFilter(todayYM());
+    setActiveMonth(todayYM());
+    setShowAllMonths(false);
   };
 
   const hasFilter =
     query !== '' ||
     typeFilter !== 'all' ||
     activeCategoryIds.size > 0 ||
-    monthFilter !== todayYM();
+    showAllMonths ||
+    activeMonth !== todayYM();
 
   return (
     <div className="tab-panel">
       <div className="card">
-        <div className="month-picker">
-          <button
-            type="button"
-            className="month-picker-nav"
-            onClick={() => setMonthFilter((m) => shiftMonth(m ?? todayYM(), -1))}
-            aria-label="上個月"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <div className="month-picker-label">
-            <strong>{monthFilter ? formatMonth(monthFilter) : '全部月份'}</strong>
-            {monthSummary && (
-              <span className="muted">
-                收 ${monthSummary.income.toLocaleString()} · 支 ${monthSummary.expense.toLocaleString()}
-              </span>
-            )}
+        <div className="records-header">
+          <div className="month-picker">
+            <button
+              type="button"
+              className="month-picker-nav"
+              onClick={() => {
+                setShowAllMonths(false);
+                setActiveMonth(shiftMonth(activeMonth, -1));
+              }}
+              aria-label="上個月"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="month-picker-label">
+              <strong>{monthFilter ? formatYearMonth(monthFilter) : '全部月份'}</strong>
+              {monthSummary && (
+                <span className="muted">
+                  收 ${monthSummary.income.toLocaleString()} · 支 ${monthSummary.expense.toLocaleString()}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="month-picker-nav"
+              onClick={() => {
+                setShowAllMonths(false);
+                setActiveMonth(shiftMonth(activeMonth, 1));
+              }}
+              aria-label="下個月"
+            >
+              <ChevronRight size={18} />
+            </button>
+            <button
+              type="button"
+              className={`month-picker-all ${showAllMonths ? 'active' : ''}`}
+              onClick={toggleAllMonths}
+            >
+              {showAllMonths ? '回到本月' : '全部'}
+            </button>
           </div>
-          <button
-            type="button"
-            className="month-picker-nav"
-            onClick={() => setMonthFilter((m) => shiftMonth(m ?? todayYM(), 1))}
-            aria-label="下個月"
-          >
-            <ChevronRight size={18} />
-          </button>
-          <button
-            type="button"
-            className={`month-picker-all ${monthFilter === null ? 'active' : ''}`}
-            onClick={() => setMonthFilter((m) => (m === null ? todayYM() : null))}
-          >
-            {monthFilter === null ? '回到本月' : '全部'}
-          </button>
+
+          <div className="records-view-toggle" aria-label="明細顯示模式">
+            <button
+              type="button"
+              className={`records-view-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => changeViewMode('list')}
+              aria-pressed={viewMode === 'list'}
+            >
+              <ListIcon size={15} />
+              <span>列表</span>
+            </button>
+            <button
+              type="button"
+              className={`records-view-btn ${viewMode === 'calendar' ? 'active' : ''}`}
+              onClick={() => changeViewMode('calendar')}
+              aria-pressed={viewMode === 'calendar'}
+            >
+              <CalendarDays size={15} />
+              <span>日曆</span>
+            </button>
+          </div>
         </div>
 
         <div className="records-toolbar">
@@ -204,10 +281,19 @@ export const RecordsTab: React.FC = () => {
         </div>
       </div>
 
+      {viewMode === 'calendar' && monthFilter && (
+        <RecordsCalendar
+          month={monthFilter}
+          transactions={filtered}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+        />
+      )}
+
       <TransactionList
-        title="所有紀錄"
-        items={filtered}
-        emptyHint={hasFilter ? '沒有符合條件的紀錄' : '目前沒有任何紀錄，趕快新增一筆吧！'}
+        title={listTitle}
+        items={shownItems}
+        emptyHint={viewMode === 'calendar' ? '這天沒有符合篩選的紀錄' : hasFilter ? '沒有符合條件的紀錄' : '目前沒有任何紀錄，趕快新增一筆吧！'}
       />
     </div>
   );

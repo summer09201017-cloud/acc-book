@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { Budget, Category, Transaction, TransactionType } from '../db/schema';
 import { runMigrationIfNeeded } from '../db/migration';
+import { ym } from '../utils/dateRange';
 
 type TransactionInput = {
   type: TransactionType;
@@ -35,6 +36,8 @@ interface ExpenseContextType {
   budgets: Budget[];
   expenseCategories: Category[];
   incomeCategories: Category[];
+  activeMonth: string;
+  setActiveMonth: (month: string) => void;
   getCategory: (id: string) => Category | undefined;
   getBudget: (categoryId: string) => Budget | undefined;
   upsertTransaction: (input: TransactionInput, id?: string) => Promise<void>;
@@ -63,11 +66,21 @@ const newId = () =>
 
 const UNDO_WINDOW_MS = 5000;
 const todayStr = () => new Date().toISOString().slice(0, 10);
+const monthStorageKey = 'expense-active-month';
+const isYearMonth = (value: string | null): value is string =>
+  !!value && /^\d{4}-\d{2}$/.test(value);
 
 export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [migrationReady, setMigrationReady] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [activeMonth, setActiveMonthState] = useState(() => {
+    try {
+      const stored = localStorage.getItem(monthStorageKey);
+      if (isYearMonth(stored)) return stored;
+    } catch { /* ignore */ }
+    return ym(new Date());
+  });
   const toastTimerRef = useRef<number | null>(null);
   const toastIdRef = useRef(0);
 
@@ -77,6 +90,14 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
       .catch((e) => console.error('[migration] failed', e))
       .finally(() => { if (!cancelled) setMigrationReady(true); });
     return () => { cancelled = true; };
+  }, []);
+
+  const setActiveMonth = useCallback((month: string) => {
+    if (!isYearMonth(month)) return;
+    setActiveMonthState(month);
+    try {
+      localStorage.setItem(monthStorageKey, month);
+    } catch { /* ignore */ }
   }, []);
 
   const transactions = useLiveQuery(
@@ -158,6 +179,8 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
     budgets,
     expenseCategories,
     incomeCategories,
+    activeMonth,
+    setActiveMonth,
     getCategory: (id) => categoryMap.get(id),
     getBudget: (id) => budgetMap.get(id),
 

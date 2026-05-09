@@ -1,15 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { useExpense } from '../context/ExpenseContext';
+import { formatYearMonth, monthRangeFromYm } from '../utils/dateRange';
 
 const FALLBACK_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#d0ed57'];
 
 export const PieChartCard: React.FC = () => {
-  const { transactions, getCategory } = useExpense();
+  const { transactions, getCategory, activeMonth } = useExpense();
   const [chartType, setChartType] = useState<'expense' | 'income'>('expense');
 
   const data = useMemo(() => {
-    const filtered = transactions.filter((t) => t.type === chartType);
+    const range = monthRangeFromYm(activeMonth);
+    const filtered = transactions.filter((t) =>
+      t.type === chartType && t.date >= range.start && t.date <= range.end
+    );
     const totals = filtered.reduce<Record<string, number>>((acc, curr) => {
       acc[curr.categoryId] = (acc[curr.categoryId] || 0) + curr.amount;
       return acc;
@@ -26,12 +30,12 @@ export const PieChartCard: React.FC = () => {
       })
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [transactions, chartType, getCategory]);
+  }, [activeMonth, transactions, chartType, getCategory]);
 
   if (transactions.length === 0) {
     return (
       <div className="card chart-card">
-        <h2 className="card-title">收支分析</h2>
+        <h2 className="card-title">{formatYearMonth(activeMonth)}收支分析</h2>
         <div className="empty-chart"><p>尚無資料</p></div>
       </div>
     );
@@ -40,7 +44,7 @@ export const PieChartCard: React.FC = () => {
   return (
     <div className="card chart-card">
       <div className="chart-header">
-        <h2 className="card-title">收支分析</h2>
+        <h2 className="card-title">{formatYearMonth(activeMonth)}收支分析</h2>
         <div className="chart-toggle">
           <button
             className={`chart-btn ${chartType === 'expense' ? 'active' : ''}`}

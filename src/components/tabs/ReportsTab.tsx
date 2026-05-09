@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useExpense } from '../../context/ExpenseContext';
-import { currentMonth, previousMonth, sumInRange } from '../../utils/dateRange';
+import { formatYearMonth, monthRangeFromYm, previousMonthOf, sumInRange } from '../../utils/dateRange';
 import { CategoryIcon } from '../CategoryIcon';
 import { Category } from '../../db/schema';
 
@@ -13,11 +13,11 @@ interface CategoryTotal {
 }
 
 export const ReportsTab: React.FC = () => {
-  const { transactions, getCategory } = useExpense();
+  const { transactions, getCategory, activeMonth } = useExpense();
 
   const data = useMemo(() => {
-    const cm = currentMonth();
-    const pm = previousMonth();
+    const cm = monthRangeFromYm(activeMonth);
+    const pm = previousMonthOf(cm);
 
     const thisExp = sumInRange(transactions, 'expense', cm.start, cm.end);
     const lastExp = sumInRange(transactions, 'expense', pm.start, pm.end);
@@ -63,7 +63,7 @@ export const ReportsTab: React.FC = () => {
       topSingle,
       totalCategoryAmount,
     };
-  }, [transactions, getCategory]);
+  }, [activeMonth, transactions, getCategory]);
 
   const expRatio = data.lastExp > 0 ? Math.round((data.expDiff / data.lastExp) * 100) : null;
   const incRatio = data.lastInc > 0 ? Math.round((data.incDiff / data.lastInc) * 100) : null;
@@ -71,13 +71,13 @@ export const ReportsTab: React.FC = () => {
   return (
     <div className="tab-panel">
       <div className="card">
-        <h2 className="card-title">本月 vs 上月</h2>
+        <h2 className="card-title">{formatYearMonth(activeMonth)} vs 上月</h2>
         <div className="report-compare">
           <div className="report-compare-row">
             <div className="report-compare-label">支出</div>
             <div className="report-compare-values">
               <div>
-                <span className="muted">本月</span>
+                <span className="muted">選定月</span>
                 <strong>${data.thisExp.toLocaleString()}</strong>
               </div>
               <div>
@@ -97,7 +97,7 @@ export const ReportsTab: React.FC = () => {
             <div className="report-compare-label">收入</div>
             <div className="report-compare-values">
               <div>
-                <span className="muted">本月</span>
+                <span className="muted">選定月</span>
                 <strong>${data.thisInc.toLocaleString()}</strong>
               </div>
               <div>
@@ -116,9 +116,9 @@ export const ReportsTab: React.FC = () => {
       </div>
 
       <div className="card">
-        <h2 className="card-title">本月 Top 5 支出分類</h2>
+        <h2 className="card-title">選定月 Top 5 支出分類</h2>
         {data.topCategories.length === 0 ? (
-          <div className="empty-state"><p>本月還沒有支出紀錄。</p></div>
+          <div className="empty-state"><p>這個月份還沒有支出紀錄。</p></div>
         ) : (
           <ul className="report-rank">
             {data.topCategories.map((c, i) => {
@@ -152,9 +152,9 @@ export const ReportsTab: React.FC = () => {
       </div>
 
       <div className="card">
-        <h2 className="card-title">本月最大 5 筆支出</h2>
+        <h2 className="card-title">選定月最大 5 筆支出</h2>
         {data.topSingle.length === 0 ? (
-          <div className="empty-state"><p>本月還沒有支出紀錄。</p></div>
+          <div className="empty-state"><p>這個月份還沒有支出紀錄。</p></div>
         ) : (
           <ul className="report-single-list">
             {data.topSingle.map((tx) => {
