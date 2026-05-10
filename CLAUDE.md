@@ -44,15 +44,15 @@ src/
 │   └── useTheme.ts               light/dark 持久化到 localStorage
 ├── utils/
 │   ├── expression.ts             安全運算式評估（120+80*2）
-│   ├── dateRange.ts              YYYY-MM-DD 月份/區間工具
-│   └── dataIO.ts                 匯入/匯出 JSON
+│   ├── dateRange.ts              YYYY-MM-DD 月份/週/月區間工具
+│   └── dataIO.ts                 匯入/匯出 JSON / CSV
 ├── components/
 │   ├── TabBar.tsx                5-tab 底部欄（手機）
 │   ├── Fab.tsx                   浮動新增鈕（手機）
 │   ├── Modal.tsx                 彈窗（Esc 關閉、鎖卷動）
 │   ├── Toast.tsx                 通知（含復原按鈕）
 │   ├── Dashboard.tsx             收入/支出/結餘卡
-│   ├── TodayHintCard.tsx         今日已花 / 本月剩 N 天均 Y
+│   ├── TodayHintCard.tsx         今日已花 / 本週已花 / 本月預算剩餘或可用餘額
 │   ├── MonthSummaryCard.tsx      本月 vs 上月同期
 │   ├── BudgetProgressCard.tsx    本月分類預算進度條
 │   ├── DailyTrendCard.tsx        每日趨勢折線
@@ -63,7 +63,7 @@ src/
 │   ├── TransactionList.tsx       紀錄列表（長按複製、編輯、刪除 Undo）
 │   └── tabs/
 │       ├── TodayTab.tsx          TodayHint + MonthSummary + Dashboard + Budget + 最近 5 筆
-│       ├── RecordsTab.tsx        月份切換 + 搜尋 + 類型/分類篩選 + 全部紀錄
+│       ├── RecordsTab.tsx        月份切換 + 快速日期篩選 + 搜尋 + 類型/分類篩選 + 日曆/列表紀錄
 │       ├── ChartsTab.tsx         趨勢折線 + 圓餅
 │       ├── ReportsTab.tsx        本月 vs 上月、Top 5 分類、Top 5 單筆
 │       └── SettingsTab.tsx       外觀切換 + 分類管理 + 資料備份 + 分類預算
@@ -136,14 +136,14 @@ key/value 雜項；目前用 `migrationFromV1Done` 與 `builtinRefreshV2Done`。
 
 | key | 中文 | emoji | 內容 |
 |---|---|---|---|
-| `today` | 今日 | 📝 | TodayHint + MonthSummary + Dashboard + Budget + 最近 5 筆 |
-| `records` | 明細 | 📋 | 月份切換 + 搜尋 + 類型/分類篩選 + 全部紀錄 |
+| `today` | 今日 | 📝 | 今日已花 / 本週已花 / 預算剩餘 + MonthSummary + Dashboard + Budget + 最近 5 筆 |
+| `records` | 紀錄 | 📋 | 預設日曆模式；月份切換 + 今天/本週/本月/上月快速篩選 + 搜尋 + 類型/分類篩選 + 列表 |
 | `charts` | 圖表 | 📊 | 每日趨勢折線 + 分類圓餅 |
 | `reports` | 報告 | 📄 | 本月 vs 上月、Top 5 分類、Top 5 單筆 |
 | `settings` | 設定 | ⚙️ | 外觀（淺/深色） + 分類管理 + 資料備份 + 分類預算 |
 
-桌機版（`min-width: 768px`）走原本的兩欄佈局，**不顯示 tab bar / FAB**。
-所有 tab 改動只影響手機 UI。
+桌機版（`min-width: 768px`）走原本的兩欄佈局，**不顯示 tab bar**；FAB 仍可用來快速新增。
+手機版分類 chip 在 Records 內採橫向滑動，避免把日曆擠到首屏之外。
 
 ## CategoryIcon 與圖示策略
 
@@ -179,10 +179,10 @@ key/value 雜項；目前用 `migrationFromV1Done` 與 `builtinRefreshV2Done`。
 - 🟢 千分位顯示
 
 **檢視與分析**
-- 🟢 今日花費 / 本月剩 N 天均 Y 提示卡
+- 🟢 今日已花 / 本週已花 / 本月預算剩餘或可用餘額提示卡
 - 🟢 本月 vs 上月同期摘要
-- 🟢 共享月份切換器（Records → Today/Charts/Reports 同步）+ 備註/日期/金額搜尋 + 分類 chip 多選 + 類型切換
-- 🟢 Records 列表 / 日曆模式切換；月曆每格顯示當日收支與筆數，點日期看當日紀錄
+- 🟢 共享月份切換器（Records → Today/Charts/Reports 同步）+ 今天/本週/本月/上月快速日期篩選 + 備註/日期/金額搜尋 + 分類 chip 多選 + 類型切換
+- 🟢 Records 預設日曆模式；月曆每格顯示當日收入 / 支出 / 餘額 / 筆數，月份總計也顯示收支餘，點日期看當日摘要與紀錄
 - 🟢 每日趨勢折線（手機 / 桌機）+ 分類圓餅（手機 / 桌機）
 - 🟢 報告：本月 vs 上月、Top 5 分類、Top 5 單筆
 - 🟢 分類預算 + 進度條 + 80% / 100% 顏色警示
@@ -198,7 +198,7 @@ key/value 雜項；目前用 `migrationFromV1Done` 與 `builtinRefreshV2Done`。
 
 ```bash
 npm install        # 安裝
-npm run dev        # 開發（http://localhost:5173）
+npm run dev        # 開發（預設 http://localhost:9999；若被占用 Vite 會自動遞增）
 npm run build      # tsc -b && vite build（CI 等同檢查）
 npm run preview    # 預覽 build 結果
 ```
@@ -225,8 +225,8 @@ npm run preview    # 預覽 build 結果
 - **IndexedDB + migration**：Dexie、`useLiveQuery`、v1 localStorage 匯入、builtin refresh/top-up 都已落地。
 - **分類系統**：30 個內建分類、自訂分類 CRUD、builtin 保護、`CategoryIcon` 共用顯示策略都已完成。
 - **記帳操作**：算式預覽、快速金額、編輯、刪除 Undo、長按複製、千分位顯示已完成。
-- **明細基礎能力**：Records tab 已有共享月份切換、列表/日曆模式、點日期看當日紀錄、搜尋、收入/支出切換、分類 chip 多選、清除篩選。
-- **分析與設定**：TodayHint、MonthSummary、BudgetProgress、DailyTrend、PieChart、Reports、暗色模式、JSON/CSV 匯入匯出、分類預算已完成。
+- **紀錄基礎能力**：Records tab（手機底部顯示「紀錄」）已有共享月份切換、預設日曆模式、每日收支餘、點日期看當日摘要與紀錄、今天/本週/本月/上月快速篩選、搜尋、收入/支出切換、分類 chip 多選、清除篩選。
+- **分析與設定**：TodayHint（今日/本週/預算剩餘）、MonthSummary、BudgetProgress、DailyTrend、PieChart、Reports、暗色模式、JSON/CSV 匯入匯出、分類預算已完成。
 - **PWA**：manifest + maskable icon + `vite-plugin-pwa` service worker 已完成。
 - **桌機版**：桌機右欄已補 TodayHint、MonthSummary、BudgetProgress、DailyTrend、PieChart、選定月紀錄。
 
