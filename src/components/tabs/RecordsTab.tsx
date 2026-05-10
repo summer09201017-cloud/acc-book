@@ -4,10 +4,11 @@ import { useExpense } from '../../context/ExpenseContext';
 import { TransactionList } from '../TransactionList';
 import { CategoryIcon } from '../CategoryIcon';
 import { RecordsCalendar } from '../RecordsCalendar';
-import { formatYearMonth, ym, ymd } from '../../utils/dateRange';
+import { DateRange, formatYearMonth, monthRangeFromYm, weekRange, ym, ymd } from '../../utils/dateRange';
 
 type TypeFilter = 'all' | 'expense' | 'income';
 type ViewMode = 'list' | 'calendar';
+type DatePreset = 'month' | 'today' | 'week' | 'lastMonth' | 'all';
 
 const todayYM = () => ym(new Date());
 
@@ -23,6 +24,35 @@ const formatDate = (dateString: string): string => {
   return `${m}/${d}（${weekday}）`;
 };
 
+const inRange = (date: string, range: DateRange | null): boolean =>
+  !range || (date >= range.start && date <= range.end);
+
+const rangeForPreset = (preset: DatePreset, activeMonth: string): DateRange | null => {
+  const now = new Date();
+  const today = ymd(now);
+  if (preset === 'all') return null;
+  if (preset === 'today') return { start: today, end: today };
+  if (preset === 'week') return weekRange(now);
+  return monthRangeFromYm(activeMonth);
+};
+
+const summarize = <T extends { type: TypeFilter; amount: number }>(items: T[]) => {
+  let income = 0;
+  let expense = 0;
+  for (const tx of items) {
+    if (tx.type === 'income') income += tx.amount;
+    else if (tx.type === 'expense') expense += tx.amount;
+  }
+  return { income, expense, balance: income - expense, count: items.length };
+};
+
+const presetLabel = (preset: DatePreset, activeMonth: string) => {
+  if (preset === 'today') return '今天';
+  if (preset === 'week') return '本週';
+  if (preset === 'all') return '全部月份';
+  return formatYearMonth(activeMonth);
+};
+
 export const RecordsTab: React.FC = () => {
   const { transactions, categories, activeMonth, setActiveMonth } = useExpense();
 
@@ -31,8 +61,11 @@ export const RecordsTab: React.FC = () => {
   const [activeCategoryIds, setActiveCategoryIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedDate, setSelectedDate] = useState<string>(ymd(new Date()));
-  const [showAllMonths, setShowAllMonths] = useState(false);
-  const monthFilter = showAllMonths ? null : activeMonth;
+  const [datePreset, setDatePreset] = useState<DatePreset>('month');
+  const activeRange = useMemo(
+    () => rangeForPreset(datePreset, activeMonth),
+    [activeMonth, datePreset]
+  );
 
   // If the current month has no records and the user hasn't manually navigated,
   // fall back to the most recent month with data on first load.
@@ -57,7 +90,7 @@ export const RecordsTab: React.FC = () => {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return transactions.filter((tx) => {
-      if (monthFilter && !tx.date.startsWith(monthFilter)) return false;
+      if (!inRange(tx.date, activeRange)) return false;
       if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
       if (activeCategoryIds.size > 0 && !activeCategoryIds.has(tx.categoryId)) return false;
       if (q) {
@@ -68,34 +101,32 @@ export const RecordsTab: React.FC = () => {
       }
       return true;
     });
-  }, [transactions, query, typeFilter, activeCategoryIds, monthFilter]);
+  }, [transactions, query, typeFilter, activeCategoryIds, activeRange]);
 
-  const monthSummary = useMemo(() => {
-    if (!monthFilter) return null;
-    let income = 0;
-    let expense = 0;
-    for (const tx of transactions) {
-      if (!tx.date.startsWith(monthFilter)) continue;
-      if (tx.type === 'income') income += tx.amount;
-      else expense += tx.amount;
-    }
-    return { income, expense };
-  }, [transactions, monthFilter]);
+  const periodSummary = useMemo(
+    () => summarize(transactions.filter((tx) => inRange(tx.date, activeRange))),
+    [transactions, activeRange]
+  );
 
   useEffect(() => {
-    if (viewMode !== 'calendar' || !monthFilter) return;
-    if (selectedDate.startsWith(monthFilter)) return;
+    if (viewMode !== 'calendar' || datePreset === 'all') return;
+    if (selectedDate.startsWith(activeMonth) && inRange(selectedDate, activeRange)) return;
     const today = ymd(new Date());
-    const fallback = today.startsWith(monthFilter)
+    const fallback = today.startsWith(activeMonth) && inRange(today, activeRange)
       ? today
-      : filtered.find((tx) => tx.date.startsWith(monthFilter))?.date ?? `${monthFilter}-01`;
+      : filtered.find((tx) => tx.date.startsWith(activeMonth))?.date ??
+        (activeRange?.start.startsWith(activeMonth) ? activeRange.start : `${activeMonth}-01`);
     setSelectedDate(fallback);
-  }, [filtered, monthFilter, selectedDate, viewMode]);
+  }, [activeMonth, activeRange, datePreset, filtered, selectedDate, viewMode]);
 
   const selectedDayItems = useMemo(() => {
     if (viewMode !== 'calendar') return [];
     return filtered.filter((tx) => tx.date === selectedDate);
   }, [filtered, selectedDate, viewMode]);
+  const selectedDaySummary = useMemo(
+    () => summarize(selectedDayItems),
+    [selectedDayItems]
+  );
 
   const shownItems = viewMode === 'calendar' ? selectedDayItems : filtered;
   const listTitle = viewMode === 'calendar'
@@ -112,8 +143,8 @@ export const RecordsTab: React.FC = () => {
   };
 
   const changeViewMode = (nextMode: ViewMode) => {
-    if (nextMode === 'calendar' && showAllMonths) {
-      setShowAllMonths(false);
+    if (nextMode === 'calendar' && datePreset === 'all') {
+      setDatePreset('month');
       if (!selectedDate.startsWith(activeMonth)) {
         const today = ymd(new Date());
         setSelectedDate(today.startsWith(activeMonth) ? today : `${activeMonth}-01`);
@@ -122,13 +153,29 @@ export const RecordsTab: React.FC = () => {
     setViewMode(nextMode);
   };
 
+  const applyDatePreset = (preset: DatePreset) => {
+    const today = ymd(new Date());
+    const currentMonth = todayYM();
+    if (preset === 'today' || preset === 'week' || preset === 'month') {
+      setActiveMonth(currentMonth);
+      setSelectedDate(today);
+    } else if (preset === 'lastMonth') {
+      const lastMonth = shiftMonth(currentMonth, -1);
+      setActiveMonth(lastMonth);
+      setSelectedDate(`${lastMonth}-01`);
+    } else {
+      setViewMode('list');
+    }
+    setDatePreset(preset);
+  };
+
   const toggleAllMonths = () => {
-    if (showAllMonths) {
+    if (datePreset === 'all') {
       setActiveMonth(todayYM());
-      setShowAllMonths(false);
+      setDatePreset('month');
       return;
     }
-    setShowAllMonths(true);
+    setDatePreset('all');
     setViewMode('list');
   };
 
@@ -137,14 +184,14 @@ export const RecordsTab: React.FC = () => {
     setTypeFilter('all');
     setActiveCategoryIds(new Set());
     setActiveMonth(todayYM());
-    setShowAllMonths(false);
+    setDatePreset('month');
   };
 
   const hasFilter =
     query !== '' ||
     typeFilter !== 'all' ||
     activeCategoryIds.size > 0 ||
-    showAllMonths ||
+    datePreset !== 'month' ||
     activeMonth !== todayYM();
 
   return (
@@ -156,7 +203,7 @@ export const RecordsTab: React.FC = () => {
               type="button"
               className="month-picker-nav"
               onClick={() => {
-                setShowAllMonths(false);
+                setDatePreset('month');
                 setActiveMonth(shiftMonth(activeMonth, -1));
               }}
               aria-label="上個月"
@@ -164,18 +211,16 @@ export const RecordsTab: React.FC = () => {
               <ChevronLeft size={18} />
             </button>
             <div className="month-picker-label">
-              <strong>{monthFilter ? formatYearMonth(monthFilter) : '全部月份'}</strong>
-              {monthSummary && (
-                <span className="muted">
-                  收 ${monthSummary.income.toLocaleString()} · 支 ${monthSummary.expense.toLocaleString()}
-                </span>
-              )}
+              <strong>{presetLabel(datePreset, activeMonth)}</strong>
+              <span className="muted">
+                收 ${periodSummary.income.toLocaleString()} · 支 ${periodSummary.expense.toLocaleString()} · 餘 ${periodSummary.balance.toLocaleString()}
+              </span>
             </div>
             <button
               type="button"
               className="month-picker-nav"
               onClick={() => {
-                setShowAllMonths(false);
+                setDatePreset('month');
                 setActiveMonth(shiftMonth(activeMonth, 1));
               }}
               aria-label="下個月"
@@ -184,10 +229,10 @@ export const RecordsTab: React.FC = () => {
             </button>
             <button
               type="button"
-              className={`month-picker-all ${showAllMonths ? 'active' : ''}`}
+              className={`month-picker-all ${datePreset === 'all' ? 'active' : ''}`}
               onClick={toggleAllMonths}
             >
-              {showAllMonths ? '回到本月' : '全部'}
+              {datePreset === 'all' ? '回到本月' : '全部'}
             </button>
           </div>
 
@@ -248,6 +293,25 @@ export const RecordsTab: React.FC = () => {
           </div>
         </div>
 
+        <div className="records-date-presets" aria-label="快速日期篩選">
+          {([
+            ['today', '今天'],
+            ['week', '本週'],
+            ['month', '本月'],
+            ['lastMonth', '上月'],
+          ] as [DatePreset, string][]).map(([preset, label]) => (
+            <button
+              key={preset}
+              type="button"
+              className={`records-date-preset ${datePreset === preset ? 'active' : ''}`}
+              onClick={() => applyDatePreset(preset)}
+              aria-pressed={datePreset === preset}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="records-chips">
           {visibleCategories.map((c) => {
             const active = activeCategoryIds.has(c.id);
@@ -281,13 +345,24 @@ export const RecordsTab: React.FC = () => {
         </div>
       </div>
 
-      {viewMode === 'calendar' && monthFilter && (
+      {viewMode === 'calendar' && datePreset !== 'all' && (
         <RecordsCalendar
-          month={monthFilter}
+          month={activeMonth}
           transactions={filtered}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
         />
+      )}
+
+      {viewMode === 'calendar' && datePreset !== 'all' && (
+        <div className="records-day-summary" aria-label={`${formatDate(selectedDate)}收支摘要`}>
+          <span>{selectedDaySummary.count} 筆</span>
+          <strong className="income">收 ${selectedDaySummary.income.toLocaleString()}</strong>
+          <strong className="expense">支 ${selectedDaySummary.expense.toLocaleString()}</strong>
+          <strong className={selectedDaySummary.balance >= 0 ? 'income' : 'expense'}>
+            餘 ${selectedDaySummary.balance.toLocaleString()}
+          </strong>
+        </div>
       )}
 
       <TransactionList

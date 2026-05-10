@@ -865,6 +865,31 @@ input:focus {
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
+.records-date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.records-date-preset {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.records-date-preset:hover { background: #f9fafb; }
+.records-date-preset.active {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: var(--primary);
+  font-weight: 700;
+}
+
 .records-chips {
   display: flex;
   flex-wrap: wrap;
@@ -931,6 +956,10 @@ input:focus {
 .records-calendar-total .expense,
 .records-calendar-amount.expense {
   color: var(--expense);
+}
+.records-calendar-amount.balance {
+  padding-top: 0.05rem;
+  border-top: 1px dashed rgba(107, 114, 128, 0.2);
 }
 .records-calendar-weekdays,
 .records-calendar-grid {
@@ -1026,6 +1055,26 @@ input:focus {
   font-weight: 700;
   line-height: 1.25;
 }
+.records-day-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--text-muted);
+  box-shadow: var(--shadow);
+  font-size: 0.86rem;
+}
+.records-day-summary span,
+.records-day-summary strong {
+  min-width: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+.records-day-summary .income { color: var(--income); }
+.records-day-summary .expense { color: var(--expense); }
 @media (max-width: 420px) {
   .records-calendar-card { padding: 0.8rem; }
   .records-calendar-weekdays,
@@ -1036,6 +1085,9 @@ input:focus {
   }
   .records-calendar-day-number { font-size: 0.76rem; }
   .records-calendar-amount { font-size: 0.62rem; }
+  .records-day-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ===== Reports ===== */
@@ -1259,7 +1311,7 @@ input:focus {
 .today-hint-card { padding: 1rem 1.25rem; }
 .today-hint-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
 }
 .today-hint-block {
@@ -1287,6 +1339,11 @@ input:focus {
 }
 .today-hint-sub.income { color: var(--income); }
 .today-hint-sub.expense { color: var(--expense); }
+@media (max-width: 520px) {
+  .today-hint-row {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ===== Records — month picker ===== */
 .month-picker {
@@ -1493,6 +1550,12 @@ input:focus {
 [data-theme="dark"] .month-picker-nav,
 [data-theme="dark"] .month-picker-all { background: #1f2937; color: var(--text-main); }
 [data-theme="dark"] .month-picker-nav:hover { background: #334155; }
+[data-theme="dark"] .records-date-preset:hover { background: #1f2937; }
+[data-theme="dark"] .records-date-preset.active {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(96, 165, 250, 0.45);
+  color: #93c5fd;
+}
 [data-theme="dark"] .records-chip:hover { background: #1f2937; }
 [data-theme="dark"] .records-calendar-cell { background: #0f172a; }
 [data-theme="dark"] .records-calendar-cell:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.24); }

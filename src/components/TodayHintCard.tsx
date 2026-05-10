@@ -1,66 +1,72 @@
 import React, { useMemo } from 'react';
-import { CalendarClock, Sparkles } from 'lucide-react';
+import { CalendarClock, PiggyBank, Sparkles } from 'lucide-react';
 import { useExpense } from '../context/ExpenseContext';
-import { currentMonth, formatYearMonth, monthRangeFromYm, sumInRange, ymd } from '../utils/dateRange';
+import { currentMonth, sumInRange, weekToDateRange, ymd } from '../utils/dateRange';
 
 export const TodayHintCard: React.FC = () => {
-  const { transactions, activeMonth } = useExpense();
+  const { transactions, budgets } = useExpense();
 
   const stats = useMemo(() => {
     const now = new Date();
     const today = ymd(now);
-    const current = currentMonth(now);
-    const cm = monthRangeFromYm(activeMonth);
-    const isCurrentMonth = cm.year === current.year && cm.month === current.month;
-    const cutoff = isCurrentMonth ? today : cm.end;
+    const cm = currentMonth(now);
+    const week = weekToDateRange(now);
 
-    const monthExpense = sumInRange(transactions, 'expense', cm.start, cutoff);
-    const monthIncome = sumInRange(transactions, 'income', cm.start, cutoff);
+    const monthExpense = sumInRange(transactions, 'expense', cm.start, today);
+    const monthIncome = sumInRange(transactions, 'income', cm.start, today);
+    const weekExpense = sumInRange(transactions, 'expense', week.start, week.end);
 
     let spentToday = 0;
     let earnedToday = 0;
-    if (isCurrentMonth) {
-      for (const t of transactions) {
-        if (t.date !== today) continue;
-        if (t.type === 'expense') spentToday += t.amount;
-        else earnedToday += t.amount;
-      }
+    for (const t of transactions) {
+      if (t.date !== today) continue;
+      if (t.type === 'expense') spentToday += t.amount;
+      else earnedToday += t.amount;
     }
 
-    // "Days remaining" includes today, so the average is what's left to spend
-    // per day from now through month-end without going over income.
-    const daysLeft = isCurrentMonth ? cm.daysInMonth - now.getDate() + 1 : 0;
-    const remainingBudget = Math.max(0, monthIncome - monthExpense);
-    const dailyAverage = daysLeft > 0 ? Math.floor(remainingBudget / daysLeft) : 0;
-    const overBudget = monthIncome > 0 && monthExpense > monthIncome;
+    const budgetLimit = budgets.reduce((sum, b) => sum + b.monthlyLimit, 0);
+    const budgetCategoryIds = new Set(budgets.map((b) => b.categoryId));
+    const spentInBudget = transactions
+      .filter((t) =>
+        t.type === 'expense' &&
+        budgetCategoryIds.has(t.categoryId) &&
+        t.date >= cm.start &&
+        t.date <= today
+      )
+      .reduce((sum, t) => sum + t.amount, 0);
 
-    const overBy = overBudget ? monthExpense - monthIncome : 0;
+    const hasBudget = budgetLimit > 0;
+    const remainingBudget = hasBudget
+      ? budgetLimit - spentInBudget
+      : monthIncome - monthExpense;
+    const overBudget = remainingBudget < 0;
+    const daysLeft = cm.daysInMonth - now.getDate() + 1;
+    const dailyAverage = daysLeft > 0 ? Math.floor(Math.max(0, remainingBudget) / daysLeft) : 0;
+
     return {
       spentToday,
       earnedToday,
+      weekExpense,
       daysLeft,
       dailyAverage,
       overBudget,
       remainingBudget,
       monthIncome,
-      monthExpense,
-      overBy,
-      isCurrentMonth,
-      label: formatYearMonth(activeMonth),
+      hasBudget,
     };
-  }, [activeMonth, transactions]);
+  }, [budgets, transactions]);
 
   return (
     <div className="card today-hint-card">
       <div className="today-hint-row">
         <div className="today-hint-block">
           <span className="today-hint-label">
-            <Sparkles size={14} aria-hidden /> {stats.isCurrentMonth ? '今日已花' : `${stats.label}支出`}
+            <Sparkles size={14} aria-hidden /> 今日已花
           </span>
           <strong className="today-hint-amount expense">
-            ${(stats.isCurrentMonth ? stats.spentToday : stats.monthExpense).toLocaleString()}
+            ${stats.spentToday.toLocaleString()}
           </strong>
-          {stats.isCurrentMonth && stats.earnedToday > 0 && (
+          {stats.earnedToday > 0 && (
             <span className="today-hint-sub income">
               + 收入 ${stats.earnedToday.toLocaleString()}
             </span>
@@ -68,19 +74,28 @@ export const TodayHintCard: React.FC = () => {
         </div>
         <div className="today-hint-block">
           <span className="today-hint-label">
-            <CalendarClock size={14} aria-hidden /> {stats.isCurrentMonth ? `本月剩 ${stats.daysLeft} 天` : '選定月份結餘'}
+            <CalendarClock size={14} aria-hidden /> 本週已花
           </span>
-          <strong className={`today-hint-amount ${stats.overBudget ? 'expense' : ''}`}>
-            {stats.isCurrentMonth
-              ? `日均 $${stats.dailyAverage.toLocaleString()}`
-              : `$${stats.remainingBudget.toLocaleString()}`}
+          <strong className="today-hint-amount expense">
+            ${stats.weekExpense.toLocaleString()}
           </strong>
           <span className="today-hint-sub muted">
-            {stats.monthIncome === 0
-              ? '尚無收入紀錄'
-              : stats.overBudget
-                ? `已超支 $${stats.overBy.toLocaleString()}`
-                : `可花 $${stats.remainingBudget.toLocaleString()}`}
+            週日至今天
+          </span>
+        </div>
+        <div className="today-hint-block">
+          <span className="today-hint-label">
+            <PiggyBank size={14} aria-hidden /> {stats.hasBudget ? '本月預算剩' : '本月可用餘額'}
+          </span>
+          <strong className={`today-hint-amount ${stats.overBudget ? 'expense' : 'income'}`}>
+            ${Math.abs(stats.remainingBudget).toLocaleString()}
+          </strong>
+          <span className="today-hint-sub muted">
+            {stats.overBudget
+              ? '已超出可用額度'
+              : stats.monthIncome === 0 && !stats.hasBudget
+                ? '尚無收入或預算'
+                : `本月剩 ${stats.daysLeft} 天 · 日均 $${stats.dailyAverage.toLocaleString()}`}
           </span>
         </div>
       </div>

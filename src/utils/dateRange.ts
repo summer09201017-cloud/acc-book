@@ -9,6 +9,11 @@ export const ymd = (d: Date) =>
 export const ym = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
 
+export interface DateRange {
+  start: string;
+  end: string;
+}
+
 export interface MonthRange {
   year: number;
   month: number;     // 1-12
@@ -52,6 +57,19 @@ export function previousMonth(now = new Date()): MonthRange {
   const m = now.getMonth() + 1; // 1-12
   if (m === 1) return monthRange(y - 1, 12);
   return monthRange(y, m - 1);
+}
+
+export function weekRange(now = new Date()): DateRange {
+  const start = new Date(now);
+  start.setDate(now.getDate() - now.getDay());
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start: ymd(start), end: ymd(end) };
+}
+
+export function weekToDateRange(now = new Date()): DateRange {
+  const week = weekRange(now);
+  return { start: week.start, end: ymd(now) };
 }
 
 // Sum of transactions in [start, end] inclusive, for the given type.
