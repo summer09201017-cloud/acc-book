@@ -9,7 +9,7 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { key: 'today',    label: '今日', emoji: '📝' },
-  { key: 'records',  label: '明細', emoji: '📋' },
+  { key: 'records',  label: '紀錄', emoji: '📋' },
   { key: 'charts',   label: '圖表', emoji: '📊' },
   { key: 'reports',  label: '報告', emoji: '📄' },
   { key: 'settings', label: '設定', emoji: '⚙️' },

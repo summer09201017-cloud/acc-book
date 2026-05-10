@@ -59,7 +59,7 @@ export const RecordsTab: React.FC = () => {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [activeCategoryIds, setActiveCategoryIds] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [selectedDate, setSelectedDate] = useState<string>(ymd(new Date()));
   const [datePreset, setDatePreset] = useState<DatePreset>('month');
   const activeRange = useMemo(
