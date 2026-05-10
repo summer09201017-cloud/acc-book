@@ -47,37 +47,41 @@ const Shell: React.FC = () => {
     );
   }
 
+  const desktopRich = tab === 'today';
+
   return (
-    <div className="app-container">
+    <div className={`app-container ${desktopRich ? 'desktop-rich' : ''}`}>
       <header className="app-header">
         <h1>💰 跨平台記帳</h1>
         <p>輕鬆管理您的收支</p>
       </header>
 
-      {/* Mobile: tab-driven single panel */}
+      {/* Tab-driven single panel (mobile always; desktop on non-today tabs) */}
       <main className="mobile-main">
         {renderTab(tab)}
       </main>
 
-      {/* Desktop: original two-column layout */}
-      <main className="desktop-main">
-        <div className="dashboard-section">
-          <TodayHintCard />
-          <Dashboard />
-        </div>
-        <div className="content-grid">
-          <div className="left-column">
-            <TransactionForm />
-            <BudgetProgressCard />
+      {/* Desktop today-only rich two-column dashboard */}
+      {desktopRich && (
+        <main className="desktop-main">
+          <div className="dashboard-section">
+            <TodayHintCard />
+            <Dashboard />
           </div>
-          <div className="right-column">
-            <MonthSummaryCard />
-            <DailyTrendCard />
-            <PieChartCard />
-            <TransactionList title="選定月紀錄" items={desktopMonthItems} />
+          <div className="content-grid">
+            <div className="left-column">
+              <TransactionForm />
+              <BudgetProgressCard />
+            </div>
+            <div className="right-column">
+              <MonthSummaryCard />
+              <DailyTrendCard />
+              <PieChartCard />
+              <TransactionList title="選定月紀錄" items={desktopMonthItems} />
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      )}
 
       <Fab onClick={() => setFabOpen(true)} />
 

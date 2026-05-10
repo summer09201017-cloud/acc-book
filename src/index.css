@@ -455,8 +455,19 @@ input:focus {
 .mobile-main { display: block; padding-bottom: 6rem; }
 .desktop-main { display: none; }
 @media (min-width: 768px) {
-  .mobile-main { display: none; }
-  .desktop-main { display: block; }
+  /* Default: show tab content on desktop too (non-today tabs) */
+  .mobile-main {
+    display: block;
+    max-width: 760px;
+    margin: 0 auto;
+    padding-bottom: 7rem;
+  }
+  /* Today tab on desktop: hide tab content, show rich two-column dashboard */
+  .app-container.desktop-rich .mobile-main { display: none; }
+  .app-container.desktop-rich .desktop-main {
+    display: block;
+    padding-bottom: 7rem;
+  }
 }
 
 .tab-panel {
@@ -465,7 +476,7 @@ input:focus {
   gap: 1rem;
 }
 
-/* ===== Tab bar (mobile only) ===== */
+/* ===== Tab bar (visible on both mobile and desktop) ===== */
 .tab-bar {
   position: fixed;
   left: 0;
@@ -509,7 +520,17 @@ input:focus {
 }
 .tab-bar-label { font-weight: 500; }
 @media (min-width: 768px) {
-  .tab-bar { display: none; }
+  .tab-bar {
+    max-width: 760px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+  }
+  .tab-bar-item { padding: 0.65rem 0.25rem; }
+  .tab-bar-emoji { font-size: 22px; }
+  .tab-bar-label { font-size: 12px; }
 }
 
 /* ===== FAB ===== */
@@ -534,7 +555,13 @@ input:focus {
 .fab:hover { background: var(--primary-hover); }
 .fab:active { transform: scale(0.94); }
 @media (min-width: 768px) {
-  .fab { display: none; }
+  /* Today tab on desktop already shows the form, so hide the FAB there */
+  .app-container.desktop-rich .fab { display: none; }
+  /* Other tabs on desktop: keep the FAB available, anchored to the centered column */
+  .fab {
+    right: max(1rem, calc(50vw - 380px - 1rem));
+    bottom: calc(96px + env(safe-area-inset-bottom, 0));
+  }
 }
 
 /* ===== Modal ===== */
