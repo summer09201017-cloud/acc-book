@@ -11,6 +11,7 @@ import { TabBar } from './components/TabBar';
 import { Fab } from './components/Fab';
 import { Modal } from './components/Modal';
 import { Toast } from './components/Toast';
+import { UpdatePrompt } from './components/UpdatePrompt';
 import { TodayTab } from './components/tabs/TodayTab';
 import { RecordsTab } from './components/tabs/RecordsTab';
 import { ChartsTab } from './components/tabs/ChartsTab';
@@ -112,6 +113,7 @@ const Shell: React.FC = () => {
       </Modal>
 
       <Toast />
+      <UpdatePrompt />
       <TabBar active={tab} onChange={setTab} />
     </div>
   );

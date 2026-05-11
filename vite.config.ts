@@ -6,7 +6,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' surfaces an in-app banner so the user knows a refresh is
+      // available; the previous 'autoUpdate' silently swapped the worker
+      // and made it hard to tell why mobile clients kept seeing old UI.
+      registerType: 'prompt',
       manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],

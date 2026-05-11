@@ -811,6 +811,86 @@ input:focus {
 .toast-close:hover { color: white; }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
+/* ===== PWA update prompt ===== */
+.update-prompt {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(0.75rem + env(safe-area-inset-top, 0));
+  width: min(calc(100% - 1.5rem), 460px);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.6rem 0.8rem;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  z-index: 70;
+  animation: update-prompt-in 0.25s ease-out;
+}
+.update-prompt.offline {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.update-prompt-body {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  flex: 1;
+}
+.update-prompt-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.update-prompt.offline .update-prompt-icon { color: var(--income); }
+.update-prompt-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.update-prompt-text strong {
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+.update-prompt-text .muted {
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+.update-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+.update-prompt-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 0.4rem 0.5rem;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s, color 0.15s;
+}
+.update-prompt-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-main); }
+.update-prompt-btn.primary {
+  background: var(--primary);
+  color: white;
+  padding: 0.45rem 0.85rem;
+}
+.update-prompt-btn.primary:hover { background: var(--primary-hover); }
+@keyframes update-prompt-in {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 /* ===== Month summary card ===== */
 .month-summary-card { padding: 1rem 1.25rem; }
 .month-summary-row {
