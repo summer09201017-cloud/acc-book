@@ -1,12 +1,17 @@
 import React from 'react';
-import { PieChartCard } from '../PieChartCard';
-import { DailyTrendCard } from '../DailyTrendCard';
+import { LazyDailyTrendCard, LazyPieChartCard } from '../lazyCharts';
+import { HeatmapCard } from '../HeatmapCard';
 
-export const ChartsTab: React.FC = () => {
+interface Props {
+  onJumpToDate?: (date: string) => void;
+}
+
+export const ChartsTab: React.FC<Props> = ({ onJumpToDate }) => {
   return (
     <div className="tab-panel">
-      <DailyTrendCard />
-      <PieChartCard />
+      <HeatmapCard onSelectDate={onJumpToDate} />
+      <LazyDailyTrendCard />
+      <LazyPieChartCard />
     </div>
   );
 };

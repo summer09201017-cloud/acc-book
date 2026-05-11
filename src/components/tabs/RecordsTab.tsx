@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, X, ChevronLeft, ChevronRight, CalendarDays, List as ListIcon } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, CalendarDays, List as ListIcon, Copy } from 'lucide-react';
 import { useExpense } from '../../context/ExpenseContext';
 import { TransactionList } from '../TransactionList';
 import { CategoryIcon } from '../CategoryIcon';
 import { RecordsCalendar } from '../RecordsCalendar';
-import { DateRange, formatYearMonth, monthRangeFromYm, weekRange, ym, ymd } from '../../utils/dateRange';
+import { DateRange, formatYearMonth, monthRangeFromYm, sameDayLastMonth, weekRange, ym, ymd } from '../../utils/dateRange';
 
 type TypeFilter = 'all' | 'expense' | 'income';
 type ViewMode = 'list' | 'calendar';
@@ -54,7 +54,15 @@ const presetLabel = (preset: DatePreset, activeMonth: string) => {
 };
 
 export const RecordsTab: React.FC = () => {
-  const { transactions, categories, activeMonth, setActiveMonth } = useExpense();
+  const {
+    transactions,
+    categories,
+    activeMonth,
+    setActiveMonth,
+    copyTransactionsFromDate,
+    pendingRecordDate,
+    requestRecordDate,
+  } = useExpense();
 
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
@@ -81,6 +89,17 @@ export const RecordsTab: React.FC = () => {
       if (latest) setActiveMonth(latest);
     }
   }, [setActiveMonth, transactions]);
+
+  // Honor cross-tab navigation requests (e.g. heatmap → focus a specific day).
+  useEffect(() => {
+    if (!pendingRecordDate) return;
+    setActiveMonth(pendingRecordDate.slice(0, 7));
+    setSelectedDate(pendingRecordDate);
+    setDatePreset('month');
+    setViewMode('calendar');
+    didAutoSelectRef.current = true;
+    requestRecordDate(null);
+  }, [pendingRecordDate, requestRecordDate, setActiveMonth]);
 
   const visibleCategories = useMemo(() => {
     if (typeFilter === 'all') return categories;
@@ -127,6 +146,19 @@ export const RecordsTab: React.FC = () => {
     () => summarize(selectedDayItems),
     [selectedDayItems]
   );
+
+  const lastMonthSameDay = useMemo(() => sameDayLastMonth(selectedDate), [selectedDate]);
+  const lastMonthSameDayCount = useMemo(
+    () => transactions.reduce((n, tx) => (tx.date === lastMonthSameDay ? n + 1 : n), 0),
+    [transactions, lastMonthSameDay]
+  );
+  const handleCopyFromLastMonth = async () => {
+    const added = await copyTransactionsFromDate(lastMonthSameDay, selectedDate);
+    if (added === 0) return;
+    if ('vibrate' in navigator) {
+      try { navigator.vibrate(10); } catch { /* ignore */ }
+    }
+  };
 
   const shownItems = viewMode === 'calendar' ? selectedDayItems : filtered;
   const listTitle = viewMode === 'calendar'
@@ -362,6 +394,17 @@ export const RecordsTab: React.FC = () => {
           <strong className={selectedDaySummary.balance >= 0 ? 'income' : 'expense'}>
             餘 ${selectedDaySummary.balance.toLocaleString()}
           </strong>
+          {lastMonthSameDayCount > 0 && (
+            <button
+              type="button"
+              className="records-day-copy-btn"
+              onClick={handleCopyFromLastMonth}
+              title={`從 ${lastMonthSameDay} 複製 ${lastMonthSameDayCount} 筆`}
+            >
+              <Copy size={14} />
+              <span>複製上月同日 ({lastMonthSameDayCount})</span>
+            </button>
+          )}
         </div>
       )}
 

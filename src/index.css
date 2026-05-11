@@ -407,6 +407,120 @@ input:focus {
   border-radius: 8px;
 }
 
+.chart-skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border);
+  background: linear-gradient(120deg, var(--card-bg), color-mix(in srgb, var(--card-bg) 85%, var(--primary) 15%), var(--card-bg));
+  background-size: 200% 100%;
+  animation: chart-skeleton-shimmer 1.4s ease-in-out infinite;
+  color: var(--text-muted);
+}
+@keyframes chart-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* ===== Heatmap (365-day GitHub-style) ===== */
+.heatmap-card { overflow: hidden; }
+.heatmap-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-top: 0.6rem;
+  -webkit-overflow-scrolling: touch;
+}
+.heatmap-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: max-content;
+  padding-bottom: 0.4rem;
+}
+.heatmap-month-row {
+  display: grid;
+  grid-template-columns: repeat(53, 14px);
+  gap: 3px;
+  margin-left: 22px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.heatmap-month-cell {
+  white-space: nowrap;
+  line-height: 1;
+  min-height: 12px;
+}
+.heatmap-body { display: flex; gap: 4px; }
+.heatmap-weekday-col {
+  display: grid;
+  grid-template-rows: repeat(7, 14px);
+  gap: 3px;
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 18px;
+}
+.heatmap-weekday {
+  display: flex;
+  align-items: center;
+  height: 14px;
+}
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(53, 14px);
+  gap: 3px;
+}
+.heatmap-col {
+  display: grid;
+  grid-template-rows: repeat(7, 14px);
+  gap: 3px;
+}
+.heatmap-cell {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: var(--heatmap-l0, #ebedf0);
+  cursor: pointer;
+  transition: transform 0.1s, outline-color 0.15s;
+}
+.heatmap-cell.level-0 { background: var(--heatmap-l0, #ebedf0); cursor: default; }
+.heatmap-cell.level-1 { background: var(--heatmap-l1, #c6e48b); }
+.heatmap-cell.level-2 { background: var(--heatmap-l2, #7bc96f); }
+.heatmap-cell.level-3 { background: var(--heatmap-l3, #239a3b); }
+.heatmap-cell.level-4 { background: var(--heatmap-l4, #196127); }
+.heatmap-cell.future {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+}
+.heatmap-cell:not(.level-0):hover {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.heatmap-cell:active { transform: scale(0.92); }
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 0.4rem;
+  margin-left: 22px;
+  font-size: 11px;
+  flex-wrap: wrap;
+}
+.heatmap-legend .heatmap-cell {
+  cursor: default;
+}
+.heatmap-legend-max { margin-left: 0.5rem; }
+
+[data-theme="dark"] {
+  --heatmap-l0: #1f2937;
+  --heatmap-l1: #0f5132;
+  --heatmap-l2: #198754;
+  --heatmap-l3: #2fb371;
+  --heatmap-l4: #6fe7a6;
+}
+
 /* ===== Loading ===== */
 .app-loading {
   min-height: 60vh;
@@ -1102,6 +1216,24 @@ input:focus {
 }
 .records-day-summary .income { color: var(--income); }
 .records-day-summary .expense { color: var(--expense); }
+.records-day-copy-btn {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.records-day-copy-btn:hover { background: rgba(59, 130, 246, 0.14); }
+.records-day-copy-btn:active { transform: scale(0.97); }
 @media (max-width: 420px) {
   .records-calendar-card { padding: 0.8rem; }
   .records-calendar-weekdays,

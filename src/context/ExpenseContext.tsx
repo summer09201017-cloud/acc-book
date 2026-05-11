@@ -43,6 +43,7 @@ interface ExpenseContextType {
   upsertTransaction: (input: TransactionInput, id?: string) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   duplicateTransaction: (id: string) => Promise<void>;
+  copyTransactionsFromDate: (sourceDate: string, targetDate: string) => Promise<number>;
   setBudget: (categoryId: string, monthlyLimit: number) => Promise<void>;
   removeBudget: (categoryId: string) => Promise<void>;
   addCategory: (input: CategoryInput) => Promise<Category>;
@@ -55,6 +56,10 @@ interface ExpenseContextType {
   editingTransaction: Transaction | null;
   openEditor: (tx: Transaction) => void;
   closeEditor: () => void;
+  // Cross-tab navigation request: another tab can set a YYYY-MM-DD to ask
+  // Records to focus that date when it next mounts/reads the value.
+  pendingRecordDate: string | null;
+  requestRecordDate: (date: string | null) => void;
 }
 
 const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
@@ -74,6 +79,7 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [migrationReady, setMigrationReady] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [pendingRecordDate, setPendingRecordDate] = useState<string | null>(null);
   const [activeMonth, setActiveMonthState] = useState(() => {
     try {
       const stored = localStorage.getItem(monthStorageKey);
@@ -252,6 +258,33 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
       );
     },
 
+    copyTransactionsFromDate: async (sourceDate, targetDate) => {
+      if (sourceDate === targetDate) return 0;
+      const src = await db.transactions.where('date').equals(sourceDate).toArray();
+      if (src.length === 0) return 0;
+      const now = Date.now();
+      const copies: Transaction[] = src.map((tx, i) => ({
+        ...tx,
+        id: newId(),
+        date: targetDate,
+        // Spread createdAt so list ordering matches the source order.
+        createdAt: now + i,
+      }));
+      await db.transactions.bulkAdd(copies);
+      showToast(
+        {
+          message: `已從 ${sourceDate} 複製 ${copies.length} 筆到 ${targetDate}`,
+          actionLabel: '復原',
+          onAction: async () => {
+            await db.transactions.bulkDelete(copies.map((c) => c.id));
+            dismissToast();
+          },
+        },
+        UNDO_WINDOW_MS
+      );
+      return copies.length;
+    },
+
     setBudget: async (categoryId, monthlyLimit) => {
       if (!Number.isFinite(monthlyLimit) || monthlyLimit < 0) return;
       await db.budgets.put({ categoryId, monthlyLimit, updatedAt: Date.now() });
@@ -323,6 +356,9 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
     editingTransaction,
     openEditor: (tx) => setEditingTransaction(tx),
     closeEditor: () => setEditingTransaction(null),
+
+    pendingRecordDate,
+    requestRecordDate: (date) => setPendingRecordDate(date),
   };
 
   return (

@@ -1,13 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ExpenseProvider, useExpense } from './context/ExpenseContext';
 import { Dashboard } from './components/Dashboard';
 import { TransactionForm } from './components/TransactionForm';
 import { TransactionList } from './components/TransactionList';
-import { PieChartCard } from './components/PieChartCard';
 import { TodayHintCard } from './components/TodayHintCard';
 import { MonthSummaryCard } from './components/MonthSummaryCard';
 import { BudgetProgressCard } from './components/BudgetProgressCard';
-import { DailyTrendCard } from './components/DailyTrendCard';
+import { LazyDailyTrendCard, LazyPieChartCard } from './components/lazyCharts';
 import { TabBar } from './components/TabBar';
 import { Fab } from './components/Fab';
 import { Modal } from './components/Modal';
@@ -20,24 +19,39 @@ import { SettingsTab } from './components/tabs/SettingsTab';
 import { useActiveTab, TabKey } from './hooks/useActiveTab';
 import './index.css';
 
-const renderTab = (tab: TabKey) => {
-  switch (tab) {
-    case 'today':    return <TodayTab />;
-    case 'records':  return <RecordsTab />;
-    case 'charts':   return <ChartsTab />;
-    case 'reports':  return <ReportsTab />;
-    case 'settings': return <SettingsTab />;
-  }
-};
-
 const Shell: React.FC = () => {
-  const { isReady, editingTransaction, closeEditor, transactions, activeMonth } = useExpense();
+  const {
+    isReady,
+    editingTransaction,
+    closeEditor,
+    transactions,
+    activeMonth,
+    requestRecordDate,
+  } = useExpense();
   const [tab, setTab] = useActiveTab('today');
   const [fabOpen, setFabOpen] = useState(false);
   const desktopMonthItems = useMemo(
     () => transactions.filter((tx) => tx.date.startsWith(activeMonth)),
     [activeMonth, transactions]
   );
+
+  const jumpToDate = useCallback(
+    (date: string) => {
+      requestRecordDate(date);
+      setTab('records');
+    },
+    [requestRecordDate, setTab]
+  );
+
+  const renderTab = (key: TabKey) => {
+    switch (key) {
+      case 'today':    return <TodayTab />;
+      case 'records':  return <RecordsTab />;
+      case 'charts':   return <ChartsTab onJumpToDate={jumpToDate} />;
+      case 'reports':  return <ReportsTab />;
+      case 'settings': return <SettingsTab />;
+    }
+  };
 
   if (!isReady) {
     return (
@@ -75,8 +89,8 @@ const Shell: React.FC = () => {
             </div>
             <div className="right-column">
               <MonthSummaryCard />
-              <DailyTrendCard />
-              <PieChartCard />
+              <LazyDailyTrendCard />
+              <LazyPieChartCard />
               <TransactionList title="選定月紀錄" items={desktopMonthItems} />
             </div>
           </div>

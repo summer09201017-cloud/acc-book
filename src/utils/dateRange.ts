@@ -99,3 +99,12 @@ export function lastMonthSamePeriod(now = new Date()): { start: string; end: str
     end: `${prev.year}-${pad2(prev.month)}-${pad2(cap)}`,
   };
 }
+
+// Returns the same day-of-month from the previous month for a given YYYY-MM-DD,
+// clamped to the last day of last month if necessary (e.g. 3/31 → 2/28).
+export function sameDayLastMonth(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  const prev = m === 1 ? monthRange(y - 1, 12) : monthRange(y, m - 1);
+  const day = Math.min(d, prev.daysInMonth);
+  return `${prev.year}-${pad2(prev.month)}-${pad2(day)}`;
+}

@@ -13,6 +13,18 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // recharts pulls in d3-shape / d3-scale and is the biggest single
+        // dep. Keep it in its own async chunk so the initial bundle stays
+        // small; chart pages already lazy-load these components.
+        manualChunks: {
+          recharts: ['recharts'],
+        },
+      },
+    },
+  },
   server: {
     // Default to a port that almost never collides; if it is occupied,
     // Vite will auto-bump (strictPort=false). start.bat picks a free port
