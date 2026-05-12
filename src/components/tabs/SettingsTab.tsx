@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Bell, Download, Upload, Trash2, Moon, Sun, Vibrate, Palette } from 'lucide-react';
 import { useExpense } from '../../context/ExpenseContext';
 import { useTheme } from '../../hooks/useTheme';
-import { ACCENT_PALETTE, AccentKey, useSettings } from '../../hooks/useSettings';
+import { ACCENT_PALETTE, PresetAccent, useSettings } from '../../hooks/useSettings';
 import {
   buildExportPayload,
   buildTransactionsCsv,
@@ -114,7 +114,7 @@ export const SettingsTab: React.FC = () => {
         <div className="settings-subsection">
           <span className="settings-subtitle"><Palette size={14} /> 主題色</span>
           <div className="accent-swatch-row" role="radiogroup" aria-label="主題色">
-            {(Object.keys(ACCENT_PALETTE) as AccentKey[]).map((key) => {
+            {(Object.keys(ACCENT_PALETTE) as PresetAccent[]).map((key) => {
               const c = ACCENT_PALETTE[key];
               const active = settings.accentColor === key;
               return (
@@ -131,7 +131,34 @@ export const SettingsTab: React.FC = () => {
                 />
               );
             })}
+            {/* Native colour picker for any hex the user wants. The rainbow
+                gradient hints "tap to pick"; the actual chosen colour shows
+                via the inner dot when this swatch is active. */}
+            <label
+              className={`accent-swatch accent-swatch-custom ${settings.accentColor === 'custom' ? 'active' : ''}`}
+              title="自訂色碼"
+              aria-label="自訂色碼"
+            >
+              {settings.accentColor === 'custom' && (
+                <span
+                  className="accent-swatch-custom-dot"
+                  style={{ background: settings.accentCustomHex }}
+                />
+              )}
+              <input
+                type="color"
+                value={settings.accentCustomHex}
+                onChange={(e) =>
+                  updateSettings({ accentColor: 'custom', accentCustomHex: e.target.value })
+                }
+              />
+            </label>
           </div>
+          {settings.accentColor === 'custom' && (
+            <div className="accent-custom-hint muted">
+              已套用自訂色碼 {settings.accentCustomHex.toUpperCase()}
+            </div>
+          )}
         </div>
       </div>
 

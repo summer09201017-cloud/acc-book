@@ -1518,8 +1518,8 @@ input:focus {
   flex-wrap: wrap;
 }
 .accent-swatch {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
   border: 2px solid transparent;
   cursor: pointer;
@@ -1532,6 +1532,43 @@ input:focus {
   border-color: var(--text-main);
   outline: 2px solid var(--card-bg);
   outline-offset: -4px;
+}
+
+/* Custom hex picker — looks like a rainbow swatch; the real <input type="color">
+   sits on top transparent so the OS picker opens on tap. */
+.accent-swatch-custom {
+  position: relative;
+  background: conic-gradient(
+    from 0deg,
+    #ef4444, #f97316, #eab308, #10b981,
+    #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444
+  );
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.accent-swatch-custom input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+}
+.accent-swatch-custom-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 2px var(--card-bg);
+  pointer-events: none;
+}
+.accent-custom-hint {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
 }
 
 .settings-toggle-list {
