@@ -158,6 +158,16 @@ body {
   gap: 1rem;
 }
 
+/* On narrow phones the amount + date side-by-side squeezes the amount
+   column hard, hiding the assistive-input buttons below the fold. Stack
+   them vertically so each input gets full width. */
+@media (max-width: 520px) {
+  .form-row {
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+}
+
 .flex-1 { flex: 1; }
 
 input {
@@ -1714,6 +1724,48 @@ input:focus {
   font-size: 0.78rem;
   color: var(--text-muted);
   margin-top: 0.4rem;
+}
+
+/* Dedicated row for the assistive-input buttons (voice + receipt OCR).
+   Separating them from `.quick-amount-row` keeps them visible on narrow
+   phones, where the chip row was wrapping these wide buttons below the
+   fold inside the cramped amount column. */
+.input-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.input-action-btn {
+  flex: 1 1 140px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px dashed var(--border);
+  background: var(--card-bg);
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-main);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.input-action-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.input-action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+.input-action-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+  animation: voice-pulse 1.2s ease-in-out infinite;
 }
 
 /* Receipt OCR progress + candidate chips (below the amount input). */

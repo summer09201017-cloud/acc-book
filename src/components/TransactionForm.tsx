@@ -296,27 +296,32 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
                   清除
                 </button>
               )}
+            </div>
+            {/* Voice + receipt OCR live on their own row so they remain
+                visible on narrow phones (the chip row above was wrapping them
+                below the fold inside the cramped amount column). */}
+            <div className="input-action-row" role="group" aria-label="輔助輸入">
               {voiceSupported && (
                 <button
                   type="button"
-                  className={`voice-input-btn ${listening ? 'listening' : ''}`}
+                  className={`input-action-btn ${listening ? 'active' : ''}`}
                   onClick={handleVoice}
                   aria-pressed={listening}
                   title={listening ? '停止聆聽' : '語音輸入(中文)'}
                 >
-                  {listening ? <MicOff size={14} /> : <Mic size={14} />}
-                  <span>{listening ? '停止' : '語音'}</span>
+                  {listening ? <MicOff size={16} /> : <Mic size={16} />}
+                  <span>{listening ? '停止聆聽' : '🎤 語音記帳'}</span>
                 </button>
               )}
               <button
                 type="button"
-                className={`voice-input-btn ${ocrBusy ? 'listening' : ''}`}
+                className={`input-action-btn ${ocrBusy ? 'active' : ''}`}
                 onClick={handleReceiptPick}
                 disabled={ocrBusy}
                 title="拍/選收據自動辨識金額"
               >
-                <Camera size={14} />
-                <span>{ocrBusy ? '辨識中' : '掃描收據'}</span>
+                <Camera size={16} />
+                <span>{ocrBusy ? '辨識中…' : '📷 掃描收據'}</span>
               </button>
               <input
                 ref={fileInputRef}
