@@ -2,10 +2,10 @@ import React, { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { RefreshCw, WifiOff, X } from 'lucide-react';
 
-// Poll for a new service worker every 30 minutes while the app is open,
-// so that a long-lived PWA tab eventually notices a deploy without a
-// hard reload from the user.
-const UPDATE_POLL_MS = 30 * 60 * 1000;
+// Mobile clients usually re-open the PWA from the home screen rather than
+// keeping a long-lived tab open, so we poll often while the page is visible
+// AND every time the page regains the foreground.
+const UPDATE_POLL_MS = 5 * 60 * 1000;
 
 export const UpdatePrompt: React.FC = () => {
   const {
@@ -15,19 +15,25 @@ export const UpdatePrompt: React.FC = () => {
   } = useRegisterSW({
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
-      // Periodically ask the browser to re-fetch the SW script so we pick
-      // up deploys without requiring the user to close every tab.
-      const id = window.setInterval(() => {
-        registration.update().catch(() => { /* offline / not yet ready */ });
-      }, UPDATE_POLL_MS);
-      // Also check once shortly after mount in case a deploy happened
-      // between the user's last visit and now.
-      const initial = window.setTimeout(() => {
-        registration.update().catch(() => {});
-      }, 10_000);
+      const check = () => registration.update().catch(() => { /* offline / not ready */ });
+      // 2-second initial poke covers "user just opened the PWA after a deploy".
+      const initial = window.setTimeout(check, 2_000);
+      const interval = window.setInterval(check, UPDATE_POLL_MS);
+      // Mobile users swipe between apps — re-check whenever the page comes
+      // back to the foreground so an old install gets a chance to refresh
+      // without waiting for the periodic interval.
+      const onForeground = () => {
+        if (document.visibilityState === 'visible') check();
+      };
+      document.addEventListener('visibilitychange', onForeground);
+      window.addEventListener('focus', onForeground);
+      window.addEventListener('pageshow', onForeground);
       return () => {
-        window.clearInterval(id);
         window.clearTimeout(initial);
+        window.clearInterval(interval);
+        document.removeEventListener('visibilitychange', onForeground);
+        window.removeEventListener('focus', onForeground);
+        window.removeEventListener('pageshow', onForeground);
       };
     },
     onRegisterError(error) {

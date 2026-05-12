@@ -2,7 +2,15 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Local-time build stamp (e.g. "2026-05-12 14:30"). Surfaced in Settings so
+// users can verify the build their PWA is on — handy when a phone is stuck
+// on a stale service worker.
+const buildStamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+
 export default defineConfig({
+  define: {
+    __APP_BUILD__: JSON.stringify(buildStamp),
+  },
   plugins: [
     react(),
     VitePWA({
@@ -13,6 +21,10 @@ export default defineConfig({
       manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
+        // Once the user accepts the prompt and the new SW activates, take
+        // over any tabs immediately instead of waiting for the next nav.
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
       },
     }),
   ],

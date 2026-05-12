@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Bell, Download, Upload, Trash2, Moon, Sun, Vibrate, Palette } from 'lucide-react';
+import { Bell, Download, Upload, Trash2, Moon, Sun, Vibrate, Palette, RefreshCw } from 'lucide-react';
 import { useExpense } from '../../context/ExpenseContext';
 import { useTheme } from '../../hooks/useTheme';
 import { ACCENT_PALETTE, PresetAccent, useSettings } from '../../hooks/useSettings';
@@ -57,6 +57,33 @@ export const SettingsTab: React.FC = () => {
 
   const handleImportClick = () => fileInputRef.current?.click();
   const handleCsvImportClick = () => csvInputRef.current?.click();
+
+  const handleCheckUpdate = async () => {
+    if (!('serviceWorker' in navigator)) {
+      showToast({ message: '此瀏覽器不支援 service worker' });
+      return;
+    }
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        showToast({ message: '尚未註冊 service worker(可能在開發模式)' });
+        return;
+      }
+      await reg.update();
+      // If a new SW is now waiting, UpdatePrompt will surface its banner via
+      // `useRegisterSW`. We just confirm we've asked the browser to re-check.
+      showToast(
+        {
+          message: reg.waiting
+            ? '找到新版,請點頂部「立即更新」'
+            : '已要求檢查,若有新版會在頂部 banner 提示',
+        },
+        4500
+      );
+    } catch {
+      showToast({ message: '檢查失敗,請確認網路連線' });
+    }
+  };
 
   const handleImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -159,6 +186,19 @@ export const SettingsTab: React.FC = () => {
               已套用自訂色碼 {settings.accentCustomHex.toUpperCase()}
             </div>
           )}
+        </div>
+
+        <div className="settings-subsection">
+          <span className="settings-subtitle"><RefreshCw size={14} /> 應用版本</span>
+          <div className="settings-actions">
+            <button type="button" className="settings-btn" onClick={handleCheckUpdate}>
+              <RefreshCw size={16} />
+              <span>檢查更新</span>
+            </button>
+          </div>
+          <div className="muted" style={{ fontSize: '0.78rem', marginTop: '0.45rem', lineHeight: 1.5 }}>
+            目前建置 {__APP_BUILD__} (UTC)。手機若一直看不到新版,長按瀏覽器重整按鈕做硬重整,或在這裡點「檢查更新」。
+          </div>
         </div>
       </div>
 
