@@ -40,7 +40,7 @@ const todayStr = () => new Date().toISOString().split('T')[0];
 const QUICK_AMOUNTS = [50, 100, 500, 1000];
 
 export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
-  const { upsertTransaction, expenseCategories, incomeCategories, templates } = useExpense();
+  const { transactions, upsertTransaction, expenseCategories, incomeCategories, templates } = useExpense();
 
   const [type, setType] = useState<TransactionType>(editing?.type ?? 'expense');
   const [amountText, setAmountText] = useState<string>(editing ? String(editing.amount) : '');
@@ -399,6 +399,36 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
             onChange={(e) => setNote(e.target.value)}
             placeholder="例如：午餐、薪資"
           />
+          {transactions && (() => {
+            const counts = new Map<string, number>();
+            // Only look at the last 1000 transactions to keep it fast, or just iterate all.
+            // We only care about the current type to suggest relevant notes.
+            for (const t of transactions) {
+              if (t.type !== type || !t.note) continue;
+              counts.set(t.note, (counts.get(t.note) || 0) + 1);
+            }
+            const frequentNotes = Array.from(counts.entries())
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5)
+              .map((e) => e[0]);
+              
+            if (frequentNotes.length === 0) return null;
+            
+            return (
+              <div className="quick-amount-row" style={{ marginTop: '0.5rem' }} role="group" aria-label="常用備註">
+                {frequentNotes.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className="quick-amount-btn"
+                    onClick={() => setNote((curr) => curr ? `${curr} ${n}` : n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         <button type="submit" className="submit-btn">

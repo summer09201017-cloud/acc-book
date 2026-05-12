@@ -11,12 +11,14 @@ import {
   importFromCsv,
   importFromJson,
 } from '../../utils/dataIO';
+import { calcStreakDays, ymd } from '../../utils/dateRange';
 import { CategoryManagerCard } from '../CategoryManagerCard';
 import { TemplateManagerCard } from '../TemplateManagerCard';
 import { RecurringRuleCard } from '../RecurringRuleCard';
 
 export const SettingsTab: React.FC = () => {
   const {
+    transactions,
     expenseCategories,
     getBudget,
     setBudget,
@@ -142,6 +144,9 @@ export const SettingsTab: React.FC = () => {
           <span className="settings-subtitle"><Palette size={14} /> 主題色</span>
           <div className="accent-swatch-row" role="radiogroup" aria-label="主題色">
             {(Object.keys(ACCENT_PALETTE) as PresetAccent[]).map((key) => {
+              const streak = calcStreakDays(transactions, ymd(new Date()));
+              const unlockedGold = streak >= 30;
+              if (key === 'gold' && !unlockedGold && settings.accentColor !== 'gold') return null;
               const c = ACCENT_PALETTE[key];
               const active = settings.accentColor === key;
               return (
@@ -152,7 +157,7 @@ export const SettingsTab: React.FC = () => {
                   role="radio"
                   aria-checked={active}
                   aria-label={c.label}
-                  title={c.label}
+                  title={key === 'gold' ? `${c.label} (連續記帳30天解鎖)` : c.label}
                   style={{ background: c.primary }}
                   onClick={() => updateSettings({ accentColor: key })}
                 />

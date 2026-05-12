@@ -140,10 +140,13 @@ export const TodayHintCard: React.FC = () => {
       </div>
 
       <div className="today-hint-footer">
-        <span className={`today-hint-streak ${stats.streak >= 3 ? 'hot' : ''}`}>
+        <span className={`today-hint-streak ${stats.streak >= 30 ? 'gold' : stats.streak >= 3 ? 'hot' : ''}`}>
           <Flame size={14} aria-hidden />
           {stats.streak > 0
-            ? <>連續記帳 <strong>{stats.streak}</strong> 天</>
+            ? <>
+                連續記帳 <strong>{stats.streak}</strong> 天
+                {stats.streak >= 30 && <span className="streak-unlock-hint"> (已解鎖燙金主題!)</span>}
+              </>
             : <>今天還沒記帳</>}
         </span>
         <span

@@ -9,7 +9,7 @@ export interface AppSettings {
 
 export type PresetAccent =
   | 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'red'
-  | 'cyan' | 'teal' | 'indigo' | 'yellow';
+  | 'cyan' | 'teal' | 'indigo' | 'yellow' | 'gold';
 export type AccentKey = PresetAccent | 'custom';
 
 export const ACCENT_PALETTE: Record<PresetAccent, { label: string; primary: string; primaryHover: string }> = {
@@ -23,6 +23,7 @@ export const ACCENT_PALETTE: Record<PresetAccent, { label: string; primary: stri
   teal:   { label: '薄荷綠', primary: '#14b8a6', primaryHover: '#0d9488' },
   indigo: { label: '深空藍', primary: '#6366f1', primaryHover: '#4f46e5' },
   yellow: { label: '金黃黃', primary: '#eab308', primaryHover: '#ca8a04' },
+  gold:   { label: '榮耀燙金', primary: '#d97706', primaryHover: '#b45309' },
 };
 
 const LS_KEY = 'expense-settings';

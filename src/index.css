@@ -1967,6 +1967,14 @@ input:focus {
 .today-hint-streak strong { color: var(--text-main); font-weight: 700; }
 .today-hint-streak.hot { color: #f97316; }
 .today-hint-streak.hot strong { color: #f97316; }
+.today-hint-streak.gold { color: #d97706; text-shadow: 0 0 8px rgba(217, 119, 6, 0.4); }
+.today-hint-streak.gold strong { color: #d97706; }
+.streak-unlock-hint { font-size: 0.75rem; color: #d97706; animation: pulse 2s infinite; }
+@keyframes pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
 .today-hint-mood {
   display: inline-flex;
   align-items: center;
