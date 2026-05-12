@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff, PlusCircle, Save } from 'lucide-react';
+import { Camera, Mic, MicOff, PlusCircle, Save } from 'lucide-react';
 import { useExpense } from '../context/ExpenseContext';
 import { Transaction, TransactionType } from '../db/schema';
 import { evaluateExpression } from '../utils/expression';
 import { triggerHaptic } from '../hooks/useSettings';
 import { parseVoiceCommand } from '../utils/voiceParse';
+import { recognizeReceipt } from '../utils/receiptOcr';
 import { CategoryIcon } from './CategoryIcon';
 
 // Web Speech API isn't in lib.dom in this TS version; minimal local typing.
@@ -75,6 +76,15 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
   const [voiceHint, setVoiceHint] = useState<string>('');
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
+  // Receipt OCR state. `ocrCandidates` lets the user pick the right number
+  // when the heuristic guesses wrong (e.g. line item vs. grand total).
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrStatus, setOcrStatus] = useState<string>('');
+  const [ocrError, setOcrError] = useState<string>('');
+  const [ocrCandidates, setOcrCandidates] = useState<number[]>([]);
+
   useEffect(() => () => {
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
   }, []);
@@ -114,6 +124,51 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
       setVoiceHint('聆聽中… 試試「早餐九十五」「咖啡 120」');
     } catch {
       setVoiceHint('無法啟動語音辨識');
+    }
+  };
+
+  const handleReceiptPick = () => {
+    if (ocrBusy) return;
+    setOcrError('');
+    fileInputRef.current?.click();
+  };
+
+  const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Allow re-selecting the same image later without remounting the input.
+    e.target.value = '';
+    if (!file) return;
+    setOcrBusy(true);
+    setOcrProgress(0);
+    setOcrStatus('準備辨識引擎…');
+    setOcrError('');
+    setOcrCandidates([]);
+    try {
+      const result = await recognizeReceipt(file, ({ status, progress }) => {
+        setOcrProgress(progress);
+        // Tesseract emits English status labels; surface a friendlier
+        // Traditional Chinese hint so the user knows what's happening.
+        if (status.includes('loading')) setOcrStatus('下載辨識引擎(首次約 10MB)…');
+        else if (status.includes('initializ')) setOcrStatus('初始化中…');
+        else if (status.includes('recognizing')) setOcrStatus('辨識中…');
+        else if (status) setOcrStatus(status);
+      });
+      if (result.amount !== null) setAmountText(String(result.amount));
+      if (result.date) setDate(result.date);
+      if (result.merchant) {
+        setNote((curr) => (curr ? curr : result.merchant));
+      }
+      setOcrCandidates(result.amountCandidates);
+      if (result.amount === null) {
+        setOcrError('沒辨識出金額,試試把收據拍得更清楚');
+      }
+    } catch (err) {
+      console.error('[ocr] failed', err);
+      setOcrError('辨識失敗,請重試或手動輸入');
+    } finally {
+      setOcrBusy(false);
+      setOcrStatus('');
+      setOcrProgress(0);
     }
   };
 
@@ -253,8 +308,53 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
                   <span>{listening ? '停止' : '語音'}</span>
                 </button>
               )}
+              <button
+                type="button"
+                className={`voice-input-btn ${ocrBusy ? 'listening' : ''}`}
+                onClick={handleReceiptPick}
+                disabled={ocrBusy}
+                title="拍/選收據自動辨識金額"
+              >
+                <Camera size={14} />
+                <span>{ocrBusy ? '辨識中' : '掃描收據'}</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={handleReceiptChange}
+              />
             </div>
             {voiceHint && <span className="voice-hint">{voiceHint}</span>}
+            {ocrBusy && (
+              <div className="ocr-progress" role="status" aria-live="polite">
+                <div className="ocr-progress-bar">
+                  <div
+                    className="ocr-progress-fill"
+                    style={{ width: `${Math.round(ocrProgress * 100)}%` }}
+                  />
+                </div>
+                <span className="ocr-progress-label">{ocrStatus}</span>
+              </div>
+            )}
+            {ocrError && <span className="voice-hint" style={{ color: 'var(--expense)' }}>{ocrError}</span>}
+            {!ocrBusy && ocrCandidates.length > 1 && (
+              <div className="ocr-candidates" role="group" aria-label="收據辨識金額候選">
+                <span className="ocr-candidates-label">可能金額:</span>
+                {ocrCandidates.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className="quick-amount-btn"
+                    onClick={() => setAmountText(String(n))}
+                  >
+                    ${n.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="form-group flex-1">

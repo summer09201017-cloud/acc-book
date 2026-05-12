@@ -1716,6 +1716,42 @@ input:focus {
   margin-top: 0.4rem;
 }
 
+/* Receipt OCR progress + candidate chips (below the amount input). */
+.ocr-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+.ocr-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.ocr-progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
+.ocr-progress-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.ocr-candidates {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+.ocr-candidates-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .budget-edit-list {
   list-style: none;
   display: flex;
