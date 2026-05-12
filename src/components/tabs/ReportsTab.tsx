@@ -12,6 +12,31 @@ interface CategoryTotal {
   amount: number;
 }
 
+interface MerchantTotal {
+  token: string;
+  amount: number;
+  count: number;
+}
+
+// Strips common filler words / dates / numbers so the merchant token surfaces.
+// Tokens are looked up case-insensitively and shorter than 1 character are dropped.
+const STOP_WORDS = new Set([
+  '的', '在', '一下', '今天', '昨天', '中午', '早餐', '午餐', '晚餐', '宵夜',
+  '買', '吃', '喝', '請', '一杯', '一份', '兩份', '三份', '個', '元',
+]);
+
+const tokenizeNote = (note: string): string[] => {
+  if (!note) return [];
+  // Split on whitespace, punctuation, and digits while keeping CJK characters intact.
+  const parts = note
+    .replace(/[\s,，、\.。·;:;!?！？/\\()\[\]【】「」『』"'`~]+/g, ' ')
+    .replace(/\d+/g, ' ')
+    .split(/\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.filter((p) => !STOP_WORDS.has(p) && p.length >= 2);
+};
+
 export const ReportsTab: React.FC = () => {
   const { transactions, getCategory, activeMonth } = useExpense();
 
@@ -54,6 +79,26 @@ export const ReportsTab: React.FC = () => {
 
     const totalCategoryAmount = topCategories.reduce((s, c) => s + c.amount, 0);
 
+    // Top 5 merchants / tokens from notes (this month, expenses only)
+    const merchantMap = new Map<string, MerchantTotal>();
+    for (const t of transactions) {
+      if (t.type !== 'expense') continue;
+      if (t.date < cm.start || t.date > cm.end) continue;
+      const tokens = tokenizeNote(t.note);
+      // Dedupe within a single transaction so "早餐 早餐" doesn't double-count.
+      const uniq = Array.from(new Set(tokens));
+      for (const token of uniq) {
+        const cur = merchantMap.get(token) ?? { token, amount: 0, count: 0 };
+        cur.amount += t.amount;
+        cur.count += 1;
+        merchantMap.set(token, cur);
+      }
+    }
+    const topMerchants = Array.from(merchantMap.values())
+      .filter((m) => m.count >= 2) // only show recurring patterns
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+
     return {
       cm, pm,
       thisExp, lastExp, thisInc, lastInc,
@@ -61,6 +106,7 @@ export const ReportsTab: React.FC = () => {
       incDiff: thisInc - lastInc,
       topCategories,
       topSingle,
+      topMerchants,
       totalCategoryAmount,
     };
   }, [activeMonth, transactions, getCategory]);
@@ -142,6 +188,41 @@ export const ReportsTab: React.FC = () => {
                     <div
                       className="report-rank-bar-fill"
                       style={{ width: `${widthPct}%`, background: c.bgColor }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="card-title">選定月 Top 5 商家/關鍵字</h2>
+        <p className="muted" style={{ marginTop: '-0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
+          從備註自動萃取(至少出現 2 次),例如「星巴克」「全家」「Uber」。
+        </p>
+        {data.topMerchants.length === 0 ? (
+          <div className="empty-state"><p>備註裡還沒有重複出現的關鍵字。</p></div>
+        ) : (
+          <ul className="report-merchant-list">
+            {data.topMerchants.map((m, i) => {
+              const widthPct = data.topMerchants[0].amount > 0
+                ? (m.amount / data.topMerchants[0].amount) * 100
+                : 0;
+              return (
+                <li key={m.token} className="report-rank-item">
+                  <div className="report-rank-head">
+                    <span className="report-rank-no">{i + 1}</span>
+                    <span className="report-rank-name">{m.token}</span>
+                    <span className="report-rank-amount">
+                      ${m.amount.toLocaleString()} <span className="muted">({m.count} 筆)</span>
+                    </span>
+                  </div>
+                  <div className="report-rank-bar">
+                    <div
+                      className="report-rank-bar-fill"
+                      style={{ width: `${widthPct}%`, background: 'var(--primary)' }}
                     />
                   </div>
                 </li>

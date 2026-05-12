@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Copy, Pencil, Trash2 } from 'lucide-react';
 import { useExpense } from '../context/ExpenseContext';
 import { Transaction } from '../db/schema';
+import { triggerHaptic } from '../hooks/useSettings';
 import { CategoryIcon } from './CategoryIcon';
 
 interface Props {
@@ -35,9 +36,7 @@ export const TransactionList: React.FC<Props> = ({
     timerRef.current = window.setTimeout(() => {
       firedRef.current = true;
       timerRef.current = null;
-      if ('vibrate' in navigator) {
-        try { navigator.vibrate(12); } catch { /* ignore */ }
-      }
+      triggerHaptic(12);
       void duplicateTransaction(txId);
     }, LONG_PRESS_MS);
   };
@@ -66,7 +65,7 @@ export const TransactionList: React.FC<Props> = ({
               <li
                 key={tx.id}
                 className="transaction-item"
-                title="長按可複製此筆到今天"
+                title="長按或點 📋 可複製此筆到今天"
                 onPointerDown={(e) => {
                   // Don't start the long-press timer when pressing on a button (edit/delete);
                   // those have their own click handlers.
@@ -88,6 +87,17 @@ export const TransactionList: React.FC<Props> = ({
                   <span className={`transaction-amount ${tx.type}`}>
                     {tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}
                   </span>
+                  <button
+                    className="icon-btn"
+                    onClick={() => {
+                      triggerHaptic(8);
+                      void duplicateTransaction(tx.id);
+                    }}
+                    title="再記一筆相同的(複製到今天)"
+                    aria-label="再記一筆相同的"
+                  >
+                    <Copy size={16} />
+                  </button>
                   <button
                     className="icon-btn"
                     onClick={() => openEditor(tx)}

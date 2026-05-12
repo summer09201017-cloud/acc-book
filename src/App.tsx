@@ -18,6 +18,8 @@ import { ChartsTab } from './components/tabs/ChartsTab';
 import { ReportsTab } from './components/tabs/ReportsTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { useActiveTab, TabKey } from './hooks/useActiveTab';
+import { useNightlyReminder } from './hooks/useNightlyReminder';
+import { useRecurringCatchup } from './hooks/useRecurringCatchup';
 import './index.css';
 
 const Shell: React.FC = () => {
@@ -31,6 +33,10 @@ const Shell: React.FC = () => {
   } = useExpense();
   const [tab, setTab] = useActiveTab('today');
   const [fabOpen, setFabOpen] = useState(false);
+
+  useNightlyReminder(transactions);
+  useRecurringCatchup(isReady);
+
   const desktopMonthItems = useMemo(
     () => transactions.filter((tx) => tx.date.startsWith(activeMonth)),
     [activeMonth, transactions]

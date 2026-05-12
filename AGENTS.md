@@ -1,0 +1,262 @@
+# AGENTS.md
+
+> 給未來 Codex 的工作守則。讀完這份就能直接接手，不用重看整個 codebase。
+
+## 專案是什麼
+
+跨平台**個人記帳 PWA**，Vite + React 18 + TypeScript。
+資料夾叫 `記帳CLI`，但實作是網頁，不是 CLI（命名為歷史遺留）。
+資料儲存：**IndexedDB（Dexie）**，schema 版本 = 3（DB 版本 2，已加 `budgets`）。
+
+## 一句話架構
+
+`ExpenseProvider` 用 `dexie-react-hooks` 訂閱 DB → `App` 依視窗寬度切換手機 5-tab 版 / 桌機雙欄版 → 手機版透過 **FAB + Modal** 新增紀錄；桌機版兩欄並排。
+
+## 技術棧
+
+| 層 | 工具 |
+|---|---|
+| 構建 | Vite 5 |
+| UI | React 18 + TypeScript 5 |
+| 圖表 | recharts |
+| icon | lucide-react |
+| 儲存 | Dexie 4（IndexedDB 包裝）+ dexie-react-hooks |
+| 樣式 | 純 CSS（`src/index.css`）+ CSS variables（含 `[data-theme="dark"]` 暗色模式） |
+
+無 ESLint / Prettier / 測試框架。
+
+## 目錄結構
+
+```
+src/
+├── App.tsx                       根元件，含手機/桌機雙佈局 + 編輯 Modal
+├── main.tsx
+├── index.css                     全域樣式（含 tab bar / FAB / modal / category tile / 月份切換 / 暗色模式）
+├── db/
+│   ├── schema.ts                 型別 + SCHEMA_VERSION（含 Category.iconName 選填欄位）
+│   ├── db.ts                     Dexie 實例：transactions / categories / budgets / meta
+│   ├── defaultCategories.ts      30 個預設類別（emoji-only）+ BUILTIN_RENAMES + V1 對照 + 色盤
+│   └── migration.ts              v1→v2 + builtin refresh + builtin top-up
+├── context/
+│   └── ExpenseContext.tsx        封裝 DB + categories + budgets + toast；useLiveQuery 即時訂閱
+├── hooks/
+│   ├── useActiveTab.ts           tab 持久化到 localStorage
+│   └── useTheme.ts               light/dark 持久化到 localStorage
+├── utils/
+│   ├── expression.ts             安全運算式評估（120+80*2）
+│   ├── dateRange.ts              YYYY-MM-DD 月份/區間工具
+│   └── dataIO.ts                 匯入/匯出 JSON
+├── components/
+│   ├── TabBar.tsx                5-tab 底部欄（手機）
+│   ├── Fab.tsx                   浮動新增鈕（手機）
+│   ├── Modal.tsx                 彈窗（Esc 關閉、鎖卷動）
+│   ├── Toast.tsx                 通知（含復原按鈕）
+│   ├── Dashboard.tsx             收入/支出/結餘卡
+│   ├── TodayHintCard.tsx         今日已花 / 本月剩 N 天均 Y
+│   ├── MonthSummaryCard.tsx      本月 vs 上月同期
+│   ├── BudgetProgressCard.tsx    本月分類預算進度條
+│   ├── DailyTrendCard.tsx        每日趨勢折線
+│   ├── PieChartCard.tsx          分類圓餅
+│   ├── CategoryIcon.tsx          ★ 共用：emoji 優先、lucide icon 為 fallback
+│   ├── CategoryManagerCard.tsx   ★ 設定頁：自訂分類 CRUD + 圖示/顏色選擇器
+│   ├── TransactionForm.tsx       新增/編輯表單（含 quick amount 50/100/500/1000）
+│   ├── TransactionList.tsx       紀錄列表（長按複製、編輯、刪除 Undo）
+│   └── tabs/
+│       ├── TodayTab.tsx          TodayHint + MonthSummary + Dashboard + Budget + 最近 5 筆
+│       ├── RecordsTab.tsx        月份切換 + 搜尋 + 類型/分類篩選 + 全部紀錄
+│       ├── ChartsTab.tsx         趨勢折線 + 圓餅
+│       ├── ReportsTab.tsx        本月 vs 上月、Top 5 分類、Top 5 單筆
+│       └── SettingsTab.tsx       外觀切換 + 分類管理 + 資料備份 + 分類預算
+└── types/index.ts                re-export schema.ts（向後相容）
+```
+
+## 資料 Schema
+
+### `Category`
+```ts
+{
+  id: string;                // UUID
+  type: 'income' | 'expense';
+  name: string;              // 飲食、交通…
+  emoji: string;             // 🍱 — 預設可視化；空字串時 fallback 到 iconName
+  iconName?: string;         // lucide-react 元件名（CategoryIcon 認得的白名單）；built-in 不再帶
+  bgColor: string;           // #FFE4B5（圓底）
+  group: string;             // 日常 / 享樂 / 健康 / 成長 / 固定 / 家庭 / 公益 / 額外 / 理財 / 其他
+  isBuiltin: boolean;        // 預設類別 = true，UI 不允許刪除（但可改顏色/圖示/emoji）
+  sortOrder: number;
+}
+```
+
+### `Transaction`
+```ts
+{
+  id: string;
+  type: 'income' | 'expense';
+  amount: number;
+  categoryId: string;        // ref Category.id
+  date: string;              // YYYY-MM-DD
+  note: string;
+  createdAt: number;         // epoch ms，做次序輔助
+}
+```
+
+### `Budget`
+```ts
+{
+  categoryId: string;        // primary key
+  monthlyLimit: number;
+  updatedAt: number;
+}
+```
+
+### `AppMeta`
+key/value 雜項；目前用 `migrationFromV1Done` 與 `builtinRefreshV2Done`。
+
+## 遷移與 Builtin 同步
+
+`runMigrationIfNeeded()` 啟動時跑三件事：
+
+1. **v1 → v2**（`migrationFromV1Done` 為 false 時跑一次）
+   - 若 `categories` 表為空，先 seed 全部 `DEFAULT_CATEGORIES`（目前 30 個）
+   - 讀 `localStorage["expense-transactions"]`，依 `V1_CATEGORY_MAP` 轉成 `Transaction`，找不到對應丟「其他」
+   - 把 v1 原始 JSON **備份**到 `localStorage["expense-transactions-v1-backup"]`
+   - 設 `migrationFromV1Done = true`，順帶設 `builtinRefreshV2Done = true`（新用戶不用跑 refresh）
+
+2. **Builtin refresh**（`builtinRefreshV2Done` 為 false 時跑一次）三 phase：
+   - **Phase 1 改名**：依 `BUILTIN_RENAMES` 把舊名 builtin 改成新名（例：`學習 → 教育`、`薪水 → 薪資`），保留 `id` 不打斷 transactions/budgets
+   - **Phase 2 重整外觀**：把所有對得上的 builtin 的 `emoji / bgColor / group / sortOrder` 覆寫成新 spec，並清掉 `iconName`（builtin 改走 emoji-only）
+   - **Phase 3 降級孤兒**：spec 已不再列入的 builtin（例：歷史中曾經短暫存在的 `飲料 / 服飾 / 房租`）改成 `isBuiltin: false`，使用者可在管理頁編輯/刪除
+   - 設 `builtinRefreshV2Done = true`
+
+3. **Builtin top-up**（每次啟動都跑、idempotent）：比對 `DEFAULT_CATEGORIES` 與現有 `categories`，依 `type|name` 補上缺的內建分類。已有相同名稱的（含使用者自訂）視為使用者擁有，**不覆寫**。
+
+備份永遠不刪 — 遇到資料疑慮可手動還原。
+
+## 5-tab 結構（手機版）
+
+| key | 中文 | emoji | 內容 |
+|---|---|---|---|
+| `today` | 今日 | 📝 | TodayHint + MonthSummary + Dashboard + Budget + 最近 5 筆 |
+| `records` | 明細 | 📋 | 月份切換 + 搜尋 + 類型/分類篩選 + 全部紀錄 |
+| `charts` | 圖表 | 📊 | 每日趨勢折線 + 分類圓餅 |
+| `reports` | 報告 | 📄 | 本月 vs 上月、Top 5 分類、Top 5 單筆 |
+| `settings` | 設定 | ⚙️ | 外觀（淺/深色） + 分類管理 + 資料備份 + 分類預算 |
+
+桌機版（`min-width: 768px`）走原本的兩欄佈局，**不顯示 tab bar / FAB**。
+所有 tab 改動只影響手機 UI。
+
+## CategoryIcon 與圖示策略
+
+`CategoryIcon` 是顯示分類圓底的唯一元件。**規則**：
+1. `emoji` 非空白 → 顯示 emoji
+2. 否則查 `ICON_REGISTRY[iconName]` → 顯示 lucide icon
+3. 否則 → 顯示 `HelpCircle`
+
+`ICON_REGISTRY`（`src/components/CategoryIcon.tsx`）是手動 curate 的白名單（約 50 個），保證 tree-shaking 有效。新增 icon 要同時 import + 加進 registry。
+
+**Built-in 一律 emoji**（沒有 `iconName`），所以使用者若把 builtin 的 emoji 清空，會看到 `HelpCircle` — 這是接受的取捨。自訂類別仍可在 emoji / lucide icon 之間二選一。
+
+## 已完成功能
+
+**核心架構**
+- 🟢 5-tab 手機 + 雙欄桌機雙佈局，FAB + Modal 新增
+- 🟢 IndexedDB（Dexie 4）+ `useLiveQuery` 即時訂閱
+- 🟢 v1（localStorage）→ v2（IndexedDB）資料遷移，含原始 JSON 備份永久保留
+- 🟢 Builtin refresh / top-up 兩段式同步機制（升級時自動補新 builtin、改名 / 重整外觀 / 降級孤兒）
+
+**分類系統**
+- 🟢 30 個預設分類（20 expense + 10 income，emoji-only）
+- 🟢 自訂分類 CRUD（新增 / 編輯 / 刪除；刪自訂時 transactions 自動轉到「其他」）
+- 🟢 Built-in 保護：UI 隱藏刪除鈕 + Context 拒絕；外觀（emoji/icon/color）放行
+- 🟢 `CategoryIcon` 共用元件（emoji 優先、lucide icon fallback、HelpCircle 兜底）
+
+**記帳體驗**
+- 🟢 算式預覽（`120+80*2` 自動算出）
+- 🟢 快速金額按鈕（50/100/500/1000 累加）
+- 🟢 編輯紀錄（鉛筆 icon → Modal）
+- 🟢 刪除紀錄 5 秒 Undo toast
+- 🟢 長按紀錄複製到今天（500ms，跳過按鈕區）
+- 🟢 千分位顯示
+
+**檢視與分析**
+- 🟢 今日花費 / 本月剩 N 天均 Y 提示卡
+- 🟢 本月 vs 上月同期摘要
+- 🟢 月份切換器（明細 tab）+ 備註/日期/金額搜尋 + 分類 chip 多選 + 類型切換
+- 🟢 每日趨勢折線（手機）+ 分類圓餅（手機 / 桌機）
+- 🟢 報告：本月 vs 上月、Top 5 分類、Top 5 單筆
+- 🟢 分類預算 + 進度條 + 80% / 100% 顏色警示
+
+**設定與資料**
+- 🟢 暗色模式（手動切換、`localStorage` 持久化、`index.html` 預載防閃爍）
+- 🟢 匯入/匯出 JSON（id 重複略過、類別以 `type|name` 配對、budget 比較 `updatedAt`）
+- 🟢 PWA manifest + maskable icon（差 service worker 才能離線）
+
+## 常用指令
+
+```bash
+npm install        # 安裝
+npm run dev        # 開發（http://localhost:5173）
+npm run build      # tsc -b && vite build（CI 等同檢查）
+npm run preview    # 預覽 build 結果
+```
+
+或本機雙擊 `start.bat`（純英文選單）。
+
+## 設計慣例（讀懂這幾條再動手）
+
+1. **資料寫入只走 ExpenseContext**：不要在元件直接呼叫 `db.transactions.add()`。需要新動作就在 Context 加方法。
+2. **顯示分類圖示一律用 `<CategoryIcon category={...} />`**：不要再到處硬寫 `<span>{cat.emoji}</span>`，否則自訂的純 icon 類別會壞掉。
+3. **手機版佈局改動限縮在 `@media (max-width: 768px)` 與 mobile-only 元件**：別動到 `.desktop-main` 區塊。
+4. **新增持久化資料先動 schema**：bump `SCHEMA_VERSION`、寫 migration、再改 UI。Dexie 只 declare 索引欄位，所以加「非索引」選填欄位（如 `Category.iconName`）不需要 db.version() bump。
+5. **預設類別不要硬刪**：`isBuiltin: true` 表示預設；UI 上隱藏刪除鈕，Context 的 `deleteCategory` 也直接 return null 拒絕。改外觀（emoji/icon/color）放行，改 type/name/group 不放行。
+6. **暗色模式覆寫遵循 CSS 變數**：絕大多數元件用 `var(--card-bg)` 等變數，dark theme 只 override 變數即可；只有少數寫死的 `#f3f4f6` 等需要明確 override（已在 index.css 底部處理）。
+7. **註解寫 why，不寫 what**：好命名 + 型別已足以說明 what。
+
+## Roadmap — 真正待做（依 CP 值排序，詳見 `docs/ROADMAP.md`）
+
+> Week 1 / 2 / 3 的「按週切」標籤已退役 — 全部都已落地，沒必要再分週。下面是還沒做的清單。
+
+### 🟢 CP 爆表（先做這幾個）
+
+- **Service Worker / 可安裝 PWA**：`manifest` 已備，加 `vite-plugin-pwa` 一行配置就完工（1-2h）
+- **跨 tab 月份切換器共享**：今 Records 月份是 local state，提到 Context 後 Today/Charts/Reports 都跟著走（4-6h）
+- **CSV 匯出/匯入**：dataIO 的 JSON 已有，多寫一支 converter 對接 Excel/Sheets（3-4h）
+- **重複交易規則**：加 `RecurringRule` 表 + 啟動時 catch-up；訂閱族每月省 5-10 筆手動（8-12h）
+- **桌機版接上新卡片**：BudgetProgressCard / TodayHintCard / DailyTrendCard 目前只接到手機 tab，桌機右欄空著（4-6h）
+
+### 🟡 CP 中
+
+- **帳戶 + 轉帳交易**：schema bump，加 `Account` + `Transaction.accountId` + 第三類型 `transfer`（10-16h）
+- **PIN / WebAuthn 解鎖**：開機 gate；對「老婆/同事會看手機」族群剛需（10-14h）
+- **月度熱力圖**：GitHub 草地風、365 天每天一個方塊（8h）
+- **訂閱偵測**：自動找出「金額+商家+月頻率」相似的紀錄並建議建 recurring rule（8-10h）
+- **Vitest + migration / dataIO 測試**：保命，schema 改動才不會裸奔（4-6h）
+- **recharts 動態 import / manualChunks**：首頁 bundle 砍 30%+（4h）
+
+### 🔵 CP 低但有趣
+
+- 語音輸入（Web Speech API、6-10h）
+- OCR 收據（Tesseract.js、20-30h，demo 殺手）
+- AI 分類建議（規則 + LLM、8-12h）
+- 多幣別 + 即時匯率（12-15h）
+- 打卡 streak / 徽章（6-8h）
+- 月底自動生成圖片報告（10-15h）
+
+### ❄️ 已凍結 / 待討論
+- 自訂數字鍵盤 — 目前運算預覽用文字框已夠用，加實體鍵盤 ROI 不高
+- 6th 分頁（日曆等）— 待設計討論：iOS HIG 建議最多 5 tab；要加得評估抽掉哪一個或改成抽屜/子頁
+
+## 已知限制 / 該知道的坑
+
+- **手機 emoji 跨平台不一致**：iOS / Windows / Android 的 🍱 長得不一樣 — 改用 lucide icon 可解但放棄 emoji 的趣味。
+- **bundle 大小**：recharts + lucide 全套讓 build 約 730KB（gzip 213KB）。`CategoryIcon` 用白名單 import 控制 lucide 的 footprint。Week 3 PWA 化前再評估 manualChunks 切 vendor。
+- **沒有 PIN/雲端同步**：記帳很私密但目前裸奔。
+- **`crypto.randomUUID` 兼容**：在 `migration.ts` 與 `ExpenseContext.tsx` 都加了 fallback。
+- **沒有測試**：bug fix 與 schema migration 改動要靠手動驗證 + `npm run build` 的 TS 檢查。
+
+## 給未來 Codex 的提醒
+
+- 動 schema 的「索引欄位」一定要寫 migration 並升 `db.version(N).stores(...)` + 寫 upgrade 函數；非索引選填欄位（如 `iconName`）只要更新 type 即可。
+- 加新 tab 不要超過 5 個（iOS HIG 上限）；若需要更多次層級，做成 settings 內的子頁。
+- 顯示分類記得用 `CategoryIcon`，搜尋時若還看到硬寫 `cat.emoji` 直接代換。
+- 若用戶提及「CLI」相關，提醒這是網頁專案（資料夾命名誤導）。

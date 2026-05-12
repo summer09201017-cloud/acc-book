@@ -108,3 +108,24 @@ export function sameDayLastMonth(date: string): string {
   const day = Math.min(d, prev.daysInMonth);
   return `${prev.year}-${pad2(prev.month)}-${pad2(day)}`;
 }
+
+// Walks back from `today` and counts consecutive days that contain at least one
+// transaction. Today itself is included as long as something was logged.
+// Treats "yesterday with records but today without" as breaking the streak.
+export function calcStreakDays<T extends { date: string }>(rows: T[], today: string): number {
+  if (rows.length === 0) return 0;
+  const set = new Set<string>();
+  for (const r of rows) set.add(r.date);
+  if (!set.has(today)) return 0;
+
+  let streak = 0;
+  const [ty, tm, td] = today.split('-').map(Number);
+  const cursor = new Date(ty, tm - 1, td);
+  while (true) {
+    const key = ymd(cursor);
+    if (!set.has(key)) break;
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}

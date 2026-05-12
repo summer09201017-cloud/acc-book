@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Download, Upload, Trash2, Moon, Sun } from 'lucide-react';
+import { Bell, Download, Upload, Trash2, Moon, Sun, Vibrate, Palette } from 'lucide-react';
 import { useExpense } from '../../context/ExpenseContext';
 import { useTheme } from '../../hooks/useTheme';
+import { ACCENT_PALETTE, AccentKey, useSettings } from '../../hooks/useSettings';
 import {
   buildExportPayload,
   buildTransactionsCsv,
@@ -11,6 +12,8 @@ import {
   importFromJson,
 } from '../../utils/dataIO';
 import { CategoryManagerCard } from '../CategoryManagerCard';
+import { TemplateManagerCard } from '../TemplateManagerCard';
+import { RecurringRuleCard } from '../RecurringRuleCard';
 
 export const SettingsTab: React.FC = () => {
   const {
@@ -21,6 +24,7 @@ export const SettingsTab: React.FC = () => {
     showToast,
   } = useExpense();
   const { theme, toggle: toggleTheme } = useTheme();
+  const { settings, update: updateSettings } = useSettings();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -106,9 +110,85 @@ export const SettingsTab: React.FC = () => {
             <span>{theme === 'dark' ? '切換淺色' : '切換深色'}</span>
           </button>
         </div>
+
+        <div className="settings-subsection">
+          <span className="settings-subtitle"><Palette size={14} /> 主題色</span>
+          <div className="accent-swatch-row" role="radiogroup" aria-label="主題色">
+            {(Object.keys(ACCENT_PALETTE) as AccentKey[]).map((key) => {
+              const c = ACCENT_PALETTE[key];
+              const active = settings.accentColor === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`accent-swatch ${active ? 'active' : ''}`}
+                  role="radio"
+                  aria-checked={active}
+                  aria-label={c.label}
+                  title={c.label}
+                  style={{ background: c.primary }}
+                  onClick={() => updateSettings({ accentColor: key })}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="card-title">記帳體驗</h2>
+        <ul className="settings-toggle-list">
+          <li className="settings-toggle-item">
+            <span className="settings-toggle-label">
+              <Vibrate size={16} aria-hidden /> 觸覺回饋
+              <small className="muted">記帳成功時短震一下(手機才有)</small>
+            </span>
+            <button
+              type="button"
+              className={`settings-switch ${settings.haptic ? 'on' : 'off'}`}
+              role="switch"
+              aria-checked={settings.haptic}
+              onClick={() => updateSettings({ haptic: !settings.haptic })}
+            >
+              <span className="settings-switch-knob" />
+            </button>
+          </li>
+          <li className="settings-toggle-item">
+            <span className="settings-toggle-label">
+              <Bell size={16} aria-hidden /> 連續記帳守護
+              <small className="muted">23:30 還沒記今天時通知一下</small>
+            </span>
+            <button
+              type="button"
+              className={`settings-switch ${settings.nightlyReminder ? 'on' : 'off'}`}
+              role="switch"
+              aria-checked={settings.nightlyReminder}
+              onClick={async () => {
+                const next = !settings.nightlyReminder;
+                if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                  try { await Notification.requestPermission(); } catch { /* ignore */ }
+                }
+                updateSettings({ nightlyReminder: next });
+                if (next) {
+                  if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+                    showToast({ message: '通知權限被瀏覽器阻擋,請到設定開啟' }, 5000);
+                  } else {
+                    showToast({ message: '已開啟連續記帳守護' });
+                  }
+                }
+              }}
+            >
+              <span className="settings-switch-knob" />
+            </button>
+          </li>
+        </ul>
       </div>
 
       <CategoryManagerCard />
+
+      <TemplateManagerCard />
+
+      <RecurringRuleCard />
 
       <div className="card">
         <h2 className="card-title">資料備份</h2>

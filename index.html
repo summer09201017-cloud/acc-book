@@ -12,10 +12,28 @@
     <link rel="apple-touch-icon" href="/icon.svg" />
     <title>跨平台記帳應用</title>
     <script>
-      // Apply persisted theme before paint to avoid a light flash on dark-mode reloads.
+      // Apply persisted theme + accent before paint to avoid a flash on reloads.
       try {
         var t = localStorage.getItem('expense-theme');
         if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        var raw = localStorage.getItem('expense-settings');
+        if (raw) {
+          var s = JSON.parse(raw);
+          var palette = {
+            blue:   ['#3b82f6', '#2563eb'],
+            green:  ['#10b981', '#059669'],
+            purple: ['#8b5cf6', '#7c3aed'],
+            orange: ['#f97316', '#ea580c'],
+            pink:   ['#ec4899', '#db2777'],
+            red:    ['#ef4444', '#dc2626']
+          };
+          var p = palette[s.accentColor];
+          if (p) {
+            document.documentElement.style.setProperty('--primary', p[0]);
+            document.documentElement.style.setProperty('--primary-hover', p[1]);
+            document.documentElement.setAttribute('data-accent', s.accentColor);
+          }
+        }
       } catch (e) { /* ignore */ }
     </script>
   </head>

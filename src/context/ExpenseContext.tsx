@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { Budget, Category, Transaction, TransactionType } from '../db/schema';
+import { Budget, Category, RecurringFrequency, RecurringRule, Template, Transaction, TransactionType } from '../db/schema';
 import { runMigrationIfNeeded } from '../db/migration';
 import { ym } from '../utils/dateRange';
 
@@ -22,6 +22,28 @@ type CategoryInput = {
   group: string;
 };
 
+export type TemplateInput = {
+  label: string;
+  type: TransactionType;
+  amount: number;
+  categoryId: string;
+  note: string;
+};
+
+export type RecurringRuleInput = {
+  label: string;
+  type: TransactionType;
+  amount: number;
+  categoryId: string;
+  note: string;
+  frequency: RecurringFrequency;
+  dayOfMonth?: number;
+  weekday?: number;
+  startDate: string;
+  endDate?: string;
+  enabled: boolean;
+};
+
 export interface ToastState {
   id: number;
   message: string;
@@ -34,6 +56,8 @@ interface ExpenseContextType {
   transactions: Transaction[];
   categories: Category[];
   budgets: Budget[];
+  templates: Template[];
+  recurringRules: RecurringRule[];
   expenseCategories: Category[];
   incomeCategories: Category[];
   activeMonth: string;
@@ -49,6 +73,15 @@ interface ExpenseContextType {
   addCategory: (input: CategoryInput) => Promise<Category>;
   updateCategory: (id: string, patch: Partial<CategoryInput>) => Promise<void>;
   deleteCategory: (id: string) => Promise<{ reassigned: number } | null>;
+  // Templates
+  addTemplate: (input: TemplateInput) => Promise<Template>;
+  updateTemplate: (id: string, patch: Partial<TemplateInput>) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+  applyTemplate: (id: string, date: string) => Promise<void>;
+  // Recurring rules
+  addRecurringRule: (input: RecurringRuleInput) => Promise<RecurringRule>;
+  updateRecurringRule: (id: string, patch: Partial<RecurringRuleInput>) => Promise<void>;
+  deleteRecurringRule: (id: string) => Promise<void>;
   toast: ToastState | null;
   showToast: (t: Omit<ToastState, 'id'>, durationMs?: number) => void;
   dismissToast: () => void;
@@ -133,6 +166,21 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
     [] as Budget[]
   );
 
+  const templates = useLiveQuery(
+    async () => {
+      const all = await db.templates.toArray();
+      return all.sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt);
+    },
+    [],
+    [] as Template[]
+  );
+
+  const recurringRules = useLiveQuery(
+    async () => db.recurringRules.toArray(),
+    [],
+    [] as RecurringRule[]
+  );
+
   const categoryMap = useMemo(() => {
     const m = new Map<string, Category>();
     categories.forEach((c) => m.set(c.id, c));
@@ -183,6 +231,8 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
     transactions,
     categories,
     budgets,
+    templates,
+    recurringRules,
     expenseCategories,
     incomeCategories,
     activeMonth,
@@ -347,6 +397,99 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
         await db.categories.delete(id);
       });
       return { reassigned };
+    },
+
+    addTemplate: async (input) => {
+      const maxOrder = templates.reduce((m, t) => Math.max(m, t.sortOrder), 0);
+      const row: Template = {
+        id: newId(),
+        label: input.label.trim() || '未命名範本',
+        type: input.type,
+        amount: input.amount,
+        categoryId: input.categoryId,
+        note: input.note,
+        sortOrder: maxOrder + 1,
+        createdAt: Date.now(),
+      };
+      await db.templates.add(row);
+      return row;
+    },
+
+    updateTemplate: async (id, patch) => {
+      const existing = await db.templates.get(id);
+      if (!existing) return;
+      await db.templates.put({
+        ...existing,
+        label: patch.label !== undefined ? (patch.label.trim() || existing.label) : existing.label,
+        type: patch.type ?? existing.type,
+        amount: patch.amount ?? existing.amount,
+        categoryId: patch.categoryId ?? existing.categoryId,
+        note: patch.note !== undefined ? patch.note : existing.note,
+      });
+    },
+
+    deleteTemplate: async (id) => {
+      await db.templates.delete(id);
+    },
+
+    applyTemplate: async (id, date) => {
+      const tmpl = await db.templates.get(id);
+      if (!tmpl) return;
+      const tx: Transaction = {
+        id: newId(),
+        type: tmpl.type,
+        amount: tmpl.amount,
+        categoryId: tmpl.categoryId,
+        date,
+        note: tmpl.note,
+        createdAt: Date.now(),
+      };
+      await db.transactions.add(tx);
+      showToast(
+        {
+          message: `已套用範本「${tmpl.label}」`,
+          actionLabel: '復原',
+          onAction: async () => {
+            await db.transactions.delete(tx.id);
+            dismissToast();
+          },
+        },
+        UNDO_WINDOW_MS
+      );
+    },
+
+    addRecurringRule: async (input) => {
+      const row: RecurringRule = {
+        id: newId(),
+        label: input.label.trim() || '未命名規則',
+        type: input.type,
+        amount: input.amount,
+        categoryId: input.categoryId,
+        note: input.note,
+        frequency: input.frequency,
+        dayOfMonth: input.dayOfMonth,
+        weekday: input.weekday,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        enabled: input.enabled,
+        createdAt: Date.now(),
+      };
+      await db.recurringRules.add(row);
+      return row;
+    },
+
+    updateRecurringRule: async (id, patch) => {
+      const existing = await db.recurringRules.get(id);
+      if (!existing) return;
+      await db.recurringRules.put({
+        ...existing,
+        ...patch,
+        label: patch.label !== undefined ? (patch.label.trim() || existing.label) : existing.label,
+      });
+    },
+
+    deleteRecurringRule: async (id) => {
+      await db.recurringRules.delete(id);
     },
 
     toast,

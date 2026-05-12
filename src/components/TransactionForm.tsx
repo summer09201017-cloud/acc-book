@@ -1,9 +1,33 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { PlusCircle, Save } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Mic, MicOff, PlusCircle, Save } from 'lucide-react';
 import { useExpense } from '../context/ExpenseContext';
 import { Transaction, TransactionType } from '../db/schema';
 import { evaluateExpression } from '../utils/expression';
+import { triggerHaptic } from '../hooks/useSettings';
+import { parseVoiceCommand } from '../utils/voiceParse';
 import { CategoryIcon } from './CategoryIcon';
+
+// Web Speech API isn't in lib.dom in this TS version; minimal local typing.
+interface SpeechRecognitionResultEvent {
+  results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean; length: number }>;
+}
+interface SpeechRecognitionInstance {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: (e: SpeechRecognitionResultEvent) => void;
+  onerror: (e: { error?: string }) => void;
+  onend: () => void;
+  start: () => void;
+  stop: () => void;
+}
+type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
+
+const getSpeechRecognition = (): SpeechRecognitionCtor | null => {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+};
 
 interface Props {
   onSubmitted?: () => void;
@@ -15,7 +39,7 @@ const todayStr = () => new Date().toISOString().split('T')[0];
 const QUICK_AMOUNTS = [50, 100, 500, 1000];
 
 export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
-  const { upsertTransaction, expenseCategories, incomeCategories } = useExpense();
+  const { upsertTransaction, expenseCategories, incomeCategories, templates } = useExpense();
 
   const [type, setType] = useState<TransactionType>(editing?.type ?? 'expense');
   const [amountText, setAmountText] = useState<string>(editing ? String(editing.amount) : '');
@@ -45,6 +69,54 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
   const evalResult = useMemo(() => evaluateExpression(amountText), [amountText]);
   const previewValue = evalResult.ok ? Math.round(evalResult.value * 100) / 100 : null;
 
+  const SpeechRecognitionCtor = useMemo(() => getSpeechRecognition(), []);
+  const voiceSupported = SpeechRecognitionCtor !== null;
+  const [listening, setListening] = useState(false);
+  const [voiceHint, setVoiceHint] = useState<string>('');
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+
+  useEffect(() => () => {
+    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+  }, []);
+
+  const handleVoice = () => {
+    if (!SpeechRecognitionCtor) return;
+    if (listening) {
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      return;
+    }
+    try {
+      const rec = new SpeechRecognitionCtor();
+      rec.lang = 'zh-TW';
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.onresult = (e) => {
+        const transcript = e.results[0]?.[0]?.transcript ?? '';
+        const parsed = parseVoiceCommand(transcript);
+        if (parsed.amount !== null) {
+          setAmountText(String(parsed.amount));
+        }
+        if (parsed.note) {
+          setNote((curr) => (curr ? `${curr} ${parsed.note}` : parsed.note));
+        }
+        setVoiceHint(`聽到:「${transcript}」`);
+      };
+      rec.onerror = (e) => {
+        setVoiceHint(`語音辨識失敗${e.error ? `(${e.error})` : ''}`);
+      };
+      rec.onend = () => {
+        setListening(false);
+        recognitionRef.current = null;
+      };
+      recognitionRef.current = rec;
+      rec.start();
+      setListening(true);
+      setVoiceHint('聆聽中… 試試「早餐九十五」「咖啡 120」');
+    } catch {
+      setVoiceHint('無法啟動語音辨識');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!evalResult.ok || previewValue === null || previewValue <= 0 || !categoryId) return;
@@ -59,6 +131,8 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
       },
       editing?.id
     );
+
+    triggerHaptic(editing ? 6 : 12);
 
     if (!editing) {
       setAmountText('');
@@ -83,6 +157,29 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
   return (
     <div className="card form-card">
       <h2 className="card-title">{isEdit ? '編輯紀錄' : '新增紀錄'}</h2>
+
+      {!isEdit && templates.length > 0 && (
+        <div className="template-chip-row" role="group" aria-label="常用範本">
+          {templates.map((tmpl) => (
+            <button
+              key={tmpl.id}
+              type="button"
+              className="template-chip"
+              onClick={() => {
+                setType(tmpl.type);
+                setAmountText(String(tmpl.amount));
+                setCategoryId(tmpl.categoryId);
+                setNote(tmpl.note);
+              }}
+              title={`${tmpl.label} — $${tmpl.amount}`}
+            >
+              <span className="template-chip-label">{tmpl.label}</span>
+              <span className="template-chip-amount">${tmpl.amount.toLocaleString()}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="transaction-form">
 
         <div className="form-group type-toggle">
@@ -144,7 +241,20 @@ export const TransactionForm: React.FC<Props> = ({ onSubmitted, editing }) => {
                   清除
                 </button>
               )}
+              {voiceSupported && (
+                <button
+                  type="button"
+                  className={`voice-input-btn ${listening ? 'listening' : ''}`}
+                  onClick={handleVoice}
+                  aria-pressed={listening}
+                  title={listening ? '停止聆聽' : '語音輸入(中文)'}
+                >
+                  {listening ? <MicOff size={14} /> : <Mic size={14} />}
+                  <span>{listening ? '停止' : '語音'}</span>
+                </button>
+              )}
             </div>
+            {voiceHint && <span className="voice-hint">{voiceHint}</span>}
           </div>
 
           <div className="form-group flex-1">
