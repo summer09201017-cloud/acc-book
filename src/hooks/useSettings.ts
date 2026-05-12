@@ -69,16 +69,26 @@ const read = (): AppSettings => {
 };
 
 const applyAccent = (key: AccentKey, customHex: string) => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  let primaryColor = '#3b82f6';
+
   if (key === 'custom') {
     const safeHex = isHex(customHex) ? customHex : DEFAULTS.accentCustomHex;
+    primaryColor = safeHex;
     document.documentElement.style.setProperty('--primary', safeHex);
     document.documentElement.style.setProperty('--primary-hover', darkenHex(safeHex));
   } else {
     const c = ACCENT_PALETTE[key];
+    primaryColor = c.primary;
     document.documentElement.style.setProperty('--primary', c.primary);
     document.documentElement.style.setProperty('--primary-hover', c.primaryHover);
   }
   document.documentElement.setAttribute('data-accent', key);
+
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) {
+    metaTheme.setAttribute('content', isDark ? '#0b1220' : primaryColor);
+  }
 };
 
 // Module-level subscribers so multiple components stay in sync.
